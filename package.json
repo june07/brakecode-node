@@ -1,0 +1,30 @@
+{
+  "name": "brakecode-agent",
+  "version": "1.0.1",
+  "description": "The Brakecode Agent is software that runs on your hosts.  It collects telemetry data including reports and makes them available for analysis.  The Brakecode Agent is open-source.",
+  "main": "brakecode.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+ssh://git@github.com/june07/brakecode-agent.git"
+  },
+  "keywords": [
+    "reports",
+    "javascript",
+    "node.js",
+    "nodejs",
+    "telemetry"
+  ],
+  "author": "June07",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/june07/brakecode-agent/issues"
+  },
+  "homepage": "https://github.com/june07/brakecode-agent",
+  "dependencies": {
+    "debug": "^4.1.1",
+    "dotenv": "^8.2.0"
+  }
+}

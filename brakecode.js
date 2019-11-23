@@ -13,7 +13,7 @@ class Brakecode {
             { type: 'native', reporter: process.report } :
             { type: 'node-report', reporter: this };
         if (nodeReport.reporter.getReport === undefined) {
-            debug(`Node Diagnostic Reports must be enabled.`);
+            debug(`Node Diagnostic Reports must be enabled.  Use the --experimental-report flag.  See https://nodejs.org/api/report.html.`);
             return 'Aborting.  Node Diagnostic Reports must be enabled.';
         }
         console.log(`BRAKECODE_SOURCE_HOST ${process.env.BRAKECODE_SOURCE_HOST}`);
