@@ -5,8 +5,12 @@ const env = require('dotenv').config(),
 
 class Brakecode {
     constructor(api) {
+        if (!process.env.BRAKECODE_API_KEY) {
+            debug('BRAKECODE_API_KEY not found.');
+            process.exit();
+        }
         this.api = api;
-        this.transport = new Transport(process.env.BRAKECODE_TRANSPORT || 'brakecode');
+        this.transport = new Transport({ type: process.env.BRAKECODE_TRANSPORT || 'brakecode' });
     }
     sendReport(options) {
         let nodeReport = process.report !== undefined ?
@@ -14,36 +18,37 @@ class Brakecode {
             { type: 'node-report', reporter: this };
         if (nodeReport.reporter.getReport === undefined) {
             debug(`Node Diagnostic Reports must be enabled.  Use the --experimental-report flag.  See https://nodejs.org/api/report.html.`);
-            return 'Aborting.  Node Diagnostic Reports must be enabled.';
+            return 'Node Diagnostic Reports must be enabled.  Use the --experimental-report flag.  See https://nodejs.org/api/report.html.';
         }
-        console.log(`BRAKECODE_SOURCE_HOST ${process.env.BRAKECODE_SOURCE_HOST}`);
+        let report = nodeReport.reporter.getReport();
         let data = JSON.stringify({
             type: nodeReport.type,
-            report: nodeReport.reporter.getReport(),
+            report,
             host: process.env.BRAKECODE_SOURCE_HOST
         });
-        console.log(`data ${JSON.parse(data).host}`);
         this.transport.send(data);
+        return report;
     }
 }
 class Transport {
-    constructor(type) {
-        this.type = type;
+    constructor(options) {
+        this.type = options.type;
+        this.server = process.env.BRAKECODE_SERVER || 'brakecode.com';
         this.brakecode = {
-            send: this.brakecodeSend
+            send: this.brakecodeSend.bind(this)
         };
         this.pubnub = {
             send: this.pubnubSend
         };
     }
     send(reportData) {
-        debugger
         this[`${this.type}`].send(reportData);
     }
     brakecodeSend(data) {
+        let transport = this;
         return new Promise((resolve, reject) => {
             const options = {
-                hostname: 'node-reports.brakecode.com',
+                hostname: transport.server,
                 port: 443,
                 path: `/api/v1/report`,
                 method: 'POST',
