@@ -1,4 +1,4 @@
-const debug = require('debug')('brakecode');
+const debug = process.env.DEBUG ? require('debug')('brakecode') : null;
 const env = require('dotenv').config(),
     querystring = require('querystring'),
     https = require('https');
@@ -6,8 +6,8 @@ const env = require('dotenv').config(),
 class Brakecode {
     constructor(api) {
         if (!process.env.BRAKECODE_API_KEY) {
-            debug('BRAKECODE_API_KEY not found.');
-            process.exit();
+            if (debug) debug('BRAKECODE_API_KEY not found.');
+            console.log('BRAKECODE_API_KEY not found.');
         }
         this.api = api;
         this.transport = new Transport({ type: process.env.BRAKECODE_TRANSPORT || 'brakecode' });
@@ -17,7 +17,7 @@ class Brakecode {
             { type: 'native', reporter: process.report } :
             { type: 'node-report', reporter: this };
         if (nodeReport.reporter.getReport === undefined) {
-            debug(`Node Diagnostic Reports must be enabled.  Use the --experimental-report flag.  See https://nodejs.org/api/report.html.`);
+            if (debug) debug(`Node Diagnostic Reports must be enabled.  Use the --experimental-report flag.  See https://nodejs.org/api/report.html.`);
             return 'Node Diagnostic Reports must be enabled.  Use the --experimental-report flag.  See https://nodejs.org/api/report.html.';
         }
         let report = nodeReport.reporter.getReport();
@@ -59,8 +59,8 @@ class Transport {
                 }
             };
             const req = https.request(options, (res) => {
-                debug('statusCode:', res.statusCode);
-                debug('headers:', res.headers);
+                if (debug) debug('statusCode:', res.statusCode);
+                if (debug) debug('headers:', res.headers);
 
                 res.on('data', d => {
                     //process.stdout.write(d);
@@ -69,7 +69,7 @@ class Transport {
                 res.on('aborted', () => reject(new Error('aborted')));
             });
             req.on('error', (e) => {
-                debug(`Error: ${e}`);
+                if (debug) debug(`Error: ${e}`);
                 reject(e);
             });
             req.write(data);
