@@ -1,6 +1,5 @@
-const debug = process.env.DEBUG ? require('debug')('brakecode') : null;
-const env = require('dotenv').config(),
-    querystring = require('querystring'),
+require('dotenv').config();
+const debug = process.env.DEBUG ? require('debug')('brakecode') : null,
     https = require('https');
 
 class Brakecode {
@@ -12,7 +11,7 @@ class Brakecode {
         this.api = api;
         this.transport = new Transport({ type: process.env.BRAKECODE_TRANSPORT || 'brakecode' });
     }
-    sendReport(options) {
+    sendReport() {
         let nodeReport = process.report !== undefined ?
             { type: 'native', reporter: process.report } :
             { type: 'node-report', reporter: this };
