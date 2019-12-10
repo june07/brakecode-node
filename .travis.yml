@@ -11,6 +11,14 @@ node_js:
 cache: npm
 
 deploy:
+  provider: releases
+  skip_cleanup: true
+  api_key: $GITHUB_TOKEN
+  keep_history: true
+  on:
+    tags: true
+
+deploy:
   provider: npm
   email: "667@onezerohosting.com"
   api_token: $NPM_TOKEN
