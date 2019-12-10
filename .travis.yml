@@ -1,0 +1,23 @@
+before_install:
+  - sudo apt-get update -y
+  
+language: node_js
+
+node_js:
+  - "node"
+
+cache: npm
+
+deploy:
+  provider: releases
+  skip_cleanup: true
+  github_token: $GITHUB_TOKEN
+  keep_history: true
+  on:
+    tags: true
+
+deploy:
+  provider: npm
+  email: "667@onezerohosting.com"
+  api_key: $NPM_TOKEN
+  skip_cleanup: true
