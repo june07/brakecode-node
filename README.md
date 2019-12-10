@@ -30,6 +30,3 @@ Reports can then be easily accessed from Chromium DevTools as shown:
   - `BRAKECODE_SERVER` - Change which server reports are sent to.
   - `BRAKECODE_SOURCE_HOST` - The source host of the reports can be changed using this var.
 
-### Todos
-
- - 
