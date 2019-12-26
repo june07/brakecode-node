@@ -24,9 +24,14 @@ Reports can then be easily accessed from Chromium DevTools as shown:
 
 ![](https://res.cloudinary.com/june07/image/upload/v1575921920/brakecode/Annotation_2019-12-09_0927536-edited.png)
 
+### Redacted by default
+
+Sensitive data is now redacted by default thanks to [rtk](https://github.com/IBM/report-toolkit).  To send unredacted reports set the `BRAKECODE_NOREDACT` env var to true.
+
+![redacted](https://res.cloudinary.com/june07/image/upload/v1577398429/brakecode/Annotation_2019-12-26_140522.png)
 ### Environment Vars
 
+  - `BRAKECODE_NOREDACT` - Set to true to disable redaction.
   - `BRAKECODE_API_KEY` - An API Key is required to send reports to Brakecode.
   - `BRAKECODE_SERVER` - Change which server reports are sent to.
   - `BRAKECODE_SOURCE_HOST` - The source host of the reports can be changed using this var.
-
