@@ -9,7 +9,10 @@ class Brakecode {
             console.log('BRAKECODE_API_KEY not found.');
         }
         this.api = api;
-        this.transport = new Transport({ type: process.env.BRAKECODE_TRANSPORT || 'brakecode' });
+        this.transport = new Transport({
+            type: process.env.BRAKECODE_TRANSPORT || 'brakecode',
+            noredact: process.env.BRAKECODE_NOREDACT || false
+        });
     }
     sendReport() {
         let nodeReport = process.report !== undefined ?
@@ -31,7 +34,7 @@ class Brakecode {
 }
 class Transport {
     constructor(options) {
-        this.type = options.type;
+        this.options = options;
         this.server = process.env.BRAKECODE_SERVER || 'brakecode.com';
         this.brakecode = {
             send: this.brakecodeSend.bind(this)
@@ -41,10 +44,19 @@ class Transport {
         };
     }
     send(reportData) {
-        this[`${this.type}`].send(reportData);
+        this[`${this.options.type}`].send(reportData);
     }
     brakecodeSend(data) {
         let transport = this;
+
+        if (!transport.options.noredact) {
+            data = Object.assign({
+                rtk: {
+                    transform: ['redact', 'json']
+                }
+            }, JSON.parse(data));
+            data = JSON.stringify(data);
+        }
         return new Promise((resolve, reject) => {
             const options = {
                 hostname: transport.server,
@@ -54,7 +66,7 @@ class Transport {
                 headers: {
                     'Content-Type': 'application/json',
                     'Content-Length': data.length,
-                    'X-Api-Key': process.env.BRAKECODE_API_KEY
+                    'X-Api-Key': process.env.BRAKECODE_API_KEY,
                 }
             };
             const req = https.request(options, (res) => {
