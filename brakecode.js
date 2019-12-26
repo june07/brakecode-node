@@ -11,7 +11,7 @@ class Brakecode {
         this.api = api;
         this.transport = new Transport({
             type: process.env.BRAKECODE_TRANSPORT || 'brakecode',
-            noredact: process.env.BRAKECODE_NOREDACT || false
+            noredact: process.env.BRAKECODE_NOREDACT ? process.env.BRAKECODE_NOREDACT == 'true' : false
         });
     }
     sendReport() {
