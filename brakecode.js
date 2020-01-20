@@ -26,7 +26,7 @@ class Brakecode {
         let data = JSON.stringify({
             type: nodeReport.type,
             report,
-            host: process.env.BRAKECODE_SOURCE_HOST
+            host: process.env.BRAKECODE_SOURCE_HOST || report.header.host
         });
         this.transport.send(data);
         return report;
@@ -49,12 +49,14 @@ class Transport {
     brakecodeSend(data) {
         let transport = this;
 
+        if (debug) debug('transport.options.noredact:', transport.options.noredact);
         if (!transport.options.noredact) {
             data = Object.assign({
                 rtk: {
                     transform: ['redact', 'json']
                 }
             }, JSON.parse(data));
+            if (debug) debug('data.rtk', data.rtk);
             data = JSON.stringify(data);
         }
         return new Promise((resolve, reject) => {
@@ -74,7 +76,7 @@ class Transport {
                 if (debug) debug('headers:', res.headers);
 
                 res.on('data', d => {
-                    //process.stdout.write(d);
+                    if (debug) process.stdout.write(d);
                 });
                 res.on('end', () => resolve());
                 res.on('aborted', () => reject(new Error('aborted')));

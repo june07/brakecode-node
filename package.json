@@ -1,6 +1,6 @@
 {
   "name": "brakecode",
-  "version": "1.0.11",
+  "version": "1.0.12",
   "description": "Brakecode is software that runs on your hosts.  It manages telemetry data including reports and makes them available for analysis.  The Brakecode NPM package is open-source.",
   "main": "brakecode.js",
   "scripts": {
@@ -24,6 +24,7 @@
   },
   "homepage": "https://github.com/june07/brakecode",
   "dependencies": {
+    "@667/ps-list": "^1.0.2",
     "dotenv": "^8.2.0"
   },
   "devDependencies": {
