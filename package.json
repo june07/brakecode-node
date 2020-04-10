@@ -8,7 +8,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+ssh://git@github.com/june07/brakecode.git"
+    "url": "git+ssh://git@github.com/june07/brakecode-node.git"
   },
   "keywords": [
     "reports",
@@ -20,9 +20,9 @@
   "author": "June07",
   "license": "MIT",
   "bugs": {
-    "url": "https://github.com/june07/brakecode/issues"
+    "url": "https://github.com/june07/brakecode-node/issues"
   },
-  "homepage": "https://github.com/june07/brakecode",
+  "homepage": "https://github.com/june07/brakecode-node",
   "dependencies": {
     "@667/ps-list": "^1.0.2",
     "dotenv": "^8.2.0"
