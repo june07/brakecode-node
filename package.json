@@ -22,7 +22,7 @@
   "bugs": {
     "url": "https://github.com/june07/brakecode-node/issues"
   },
-  "homepage": "https://github.com/june07/brakecode-node",
+  "homepage": "https://brakecode.com",
   "dependencies": {
     "@667/ps-list": "^1.0.2",
     "dotenv": "^8.2.0"
