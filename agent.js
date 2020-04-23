@@ -127,25 +127,42 @@ class Agent {
         })();
 
         (async () => {
-            let plist = await psList({ processName: 'node.exe' });
+            let plist = await psList({ processName: 'node' }),
+                plistDocker = await psList({ processName: 'docker' });
             let promises = [];
             plist.forEach((listItem) => {
                 if (listItem.name.search(/node(.exe)?\s?/) !== -1) {
                     promises.push(Agent.getInspectSocket(agent, processNetStats, listItem.pid)
                         .then((socket) => {
-                            Object.assign(listItem, { nodeInspectFlagSet: (listItem.cmd.search(/--inspect/) === -1) ? false : true, nodeInspectSocket: (listItem.cmd.search(/--inspect/) === -1) ? undefined : socket })
+                            Object.assign(listItem, { nodeInspectFlagSet: (listItem.cmd.search(/--inspect/) === -1) ? false : true, nodeInspectSocket: (listItem.cmd.search(/--inspect/) === -1) ? undefined : socket });
                             Object.assign(agent.processList, { [listItem.pid]: listItem });
                         })
                         .catch((error) => {
                             console.dir(error);
                         }));
                 }
-            })
+            });
+            plistDocker.forEach((listItem) => {
+                if (listItem.name.search(/docker(.exe)?\s?/) !== -1) {
+                    promises.push(Agent.getInspectSocket(agent, processNetStats, listItem.pid)
+                        .then((socket) => {
+                            Object.assign(listItem, { dockerContainer: true });
+                            Object.assign(listItem, { nodeInspectFlagSet: (listItem.cmd.search(/--inspect/) === -1) ? false : true, nodeInspectSocket: (listItem.cmd.search(/--inspect/) === -1) ? undefined : socket });
+                            Object.assign(agent.processList, { [listItem.pid]: listItem });
+                        })
+                        .catch((error) => {
+                            console.dir(error);
+                        }));
+                }
+            });
             Promise.all(promises)
                 .then(() => {
                     let totalNodeProcesses = Object.keys(agent.processList).length,
-                        totalNodeProcessesCalledWithInspectFlag = Object.values(agent.processList).filter((p) => { return p.nodeInspectFlagSet }).length;
-                    console.log('There were ' + totalNodeProcesses + ` running Node processes detected on this host during this check, (${totalNodeProcessesCalledWithInspectFlag}/${totalNodeProcesses}) were started with '--inspect'.`);
+                        totalNodeProcessesCalledWithInspectFlag = Object.values(agent.processList).filter((p) => { return p.nodeInspectFlagSet }).length,
+                        totalNodeProcessesRunningOnDocker = Object.values(agent.processList).filter((p) => p.dockerContainer).length;
+                    console.log('There were ' + totalNodeProcesses + ` running Node processes detected on this host during this check,
+    ${totalNodeProcessesRunningOnDocker}/${totalNodeProcesses} are running on Docker 🐋,
+    ${totalNodeProcessesCalledWithInspectFlag}/${totalNodeProcesses} were started with '--inspect'.`);
                     agent.updating = false;
                 });
         })();
