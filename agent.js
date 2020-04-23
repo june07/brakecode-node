@@ -143,10 +143,9 @@ class Agent {
             })
             Promise.all(promises)
                 .then(() => {
-                    console.log('There were ' + Object.keys(agent.processList).length + ' running Node.js processes detected on this host during this check.');
-                    console.log('There were ' + Object.values(agent.processList).filter((p) => { return p.nodeInspectFlagSet }).length + ' running Node.js processes detected WITH INSPECT FLAG SET on this host during this check.');
-                    //=> [{pid: 3213, name: 'node', cmd: 'node test.js', ppid: 1, cpu: 0.1, memory: 1.5}, …]
-                    //console.dir(Agent.processList);
+                    let totalNodeProcesses = Object.keys(agent.processList).length,
+                        totalNodeProcessesCalledWithInspectFlag = Object.values(agent.processList).filter((p) => { return p.nodeInspectFlagSet }).length;
+                    console.log('There were ' + totalNodeProcesses + ` running Node processes detected on this host during this check, (${totalNodeProcessesCalledWithInspectFlag}/${totalNodeProcesses}) were started with '--inspect'.`);
                     agent.updating = false;
                 });
         })();
