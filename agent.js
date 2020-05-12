@@ -1,14 +1,27 @@
 const debug = process.env.DEBUG ? require('debug')('brakecode') : error => console.log(error),
     fs = require('fs'),
     { exec, execFile } = require('child_process'),
-    { EOL } = require('os'),
     { join } = require('path'),
-    { homedir, platform } = require('os'),
-    psList = process.env.NODE_ENV === 'dev' ? require('../ps-list') : require('@667/ps-list');
+    { EOL, homedir, hostname, platform, release, uptime } = require('os'),
+    uuid = require('uuid/v4'),
+    psList = process.env.NODE_ENV === 'dev' ? require('../ps-list') : require('@667/ps-list'),
+    inquirer = require('inquirer');
+const BRAKECODE_DIR = join(homedir(), '.brakecode');
+const NIMS_DIR = join(homedir(), '.nims');
+const ENV_PATH = join(NIMS_DIR, '.env');
+const N2PSocket = require('./N2PSocket.js'),
+    SSHKeyManager = require('./SSHKeyManager.js'),
+    Watcher = require('./Watcher.js');
 
 class Agent {
     constructor() {
         let self = this;
+        self.metadata = {
+            title: hostname(),
+            uuid: uuid(),
+            host: hostname(),
+            content: uptime + ' ' + platform + ' ' + release
+        }
         self.processList = {};
         self.stats = {
             startTime: undefined
@@ -19,16 +32,18 @@ class Agent {
         self.updating = false;
 
         if (process.env.BRAKECODE_API_KEY) {
-            let brakecodeDir = join(homedir(), '.brakecode');
             try {
-                if (fs.statSync(brakecodeDir).isDirectory()) {
-                    fs.writeFileSync(join(brakecodeDir, '.env'), 'BRAKECODE_API_KEY=' + process.env.BRAKECODE_API_KEY);
+                if (fs.statSync(BRAKECODE_DIR).isDirectory()) {
+                    fs.writeFileSync(join(BRAKECODE_DIR, '.env'), 'BRAKECODE_API_KEY=' + process.env.BRAKECODE_API_KEY);
                 }
             } catch(error) {
-                fs.mkdirSync(brakecodeDir);
-                fs.writeFileSync(join(brakecodeDir, '.env'), 'BRAKECODE_API_KEY=' + process.env.BRAKECODE_API_KEY);
+                fs.mkdirSync(BRAKECODE_DIR);
+                fs.writeFileSync(join(BRAKECODE_DIR, '.env'), 'BRAKECODE_API_KEY=' + process.env.BRAKECODE_API_KEY);
             }
         }
+        self.controlSocket = new N2PSocket(self);
+        self.SSHKeyManager = new SSHKeyManager(self);
+        self.watchers = {};
     }
     getRunningNodeProcesses() {
         return this.processList;
@@ -55,6 +70,13 @@ class Agent {
                 setTimeout(stableAgent, 500);
             }
         })();
+    }
+    formatMetadata(processList) {
+        let self = this;
+        return Object.assign(self.metadata, {
+            githubNodejsNodeIssues24085: self.githubNodejsNodeIssues24085,
+            connections: processList
+        });
     }
     static signalProcess(platform, dockerContainer, pid) {
         if (platform === 'win32' && ! dockerContainer) {
@@ -186,15 +208,57 @@ class Agent {
     ${totalNodeProcessesRunningOnDocker}/${totalNodeProcesses} are running on Docker 🐋,
     ${totalNodeProcessesCalledWithInspectFlag}/${totalNodeProcesses} were started with '--inspect'.`);
                     agent.updating = false;
+                    let formattedMetadata = agent.formatMetadata(agent.processList);
+                    //debug(`Formatted metadata: ${JSON.stringify(formattedMetadata)}`);
+                    agent.controlSocket.io.emit('metadata', formattedMetadata);
                 });
         })();
     }
-
 }
 
-let agent = new Agent();
-module.exports = agent;
+function checkENV() {
+    if (! fs.existsSync(ENV_PATH)) {
+        if (! fs.existsSync(NIMS_DIR)) {
+            console.log('Creating NiMS directory at ' + NIMS_DIR + '...');
+            fs.mkdirSync(NIMS_DIR);
+        }
+        return inquirer
+        .prompt([
+            // Question 1
+            {
+                name: 'NiMS_API_KEY',
+                message: 'What is your NiMS_API_KEY',
+                filter: (input) => {
+                    return new Promise(resolve => {
+                        resolve(input);
+                    });
+                }
+            },
+            {
+                name: 'UID',
+                message: 'What is your NiMS UID',
+                filter: (input) => {
+                    return new Promise(resolve => {
+                        resolve(input);
+                    });
+                }
+            }
+        ])
+        .then(answers => {
+            console.log('Saving environment variables to ' + ENV_PATH + '...')
+            fs.writeFileSync(ENV_PATH, Object.entries(answers).map(item => item[0] + '=' + item[1]).toString().replace(',', EOL) + EOL);
+        });
+    } else {
+        return Promise.resolve();
+    }
+}
 
-agent.start();
+checkENV()
+.then(() => {
+    let agent = new Agent();
+    module.exports = agent;
 
-if (process.env.NODE_ENV === 'dev') global.brakecode = { agent }
+    agent.start();
+
+    if (process.env.NODE_ENV === 'dev') global.brakecode = { agent }
+});
