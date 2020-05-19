@@ -119,7 +119,7 @@ class Agent {
             if (!self.processList[pid]) return `PID ${pid} not found.`;
             let found = self.dockerProcesses.find(stdout => {
                 let exposedPort = stdout[3].match(/\d.\d.\d.\d:(\d{1,5})/)[1];
-                if (exposedPort !== -1) return true;
+                if (exposedPort !== -1 && pid === stdout[4]) return true;
                 return false;
             });
             if (!found) return;
@@ -305,7 +305,7 @@ class Agent {
                         }));
                 }
             });*/
-            agent.dockerProcesses.map(dockerProcess => {
+            agent.dockerProcesses.map((dockerProcess, i, dockerProcesses) => {
                 let nodeInspectPort = dockerProcess[3].match(/\d.\d.\d.\d:(\d{1,5})/)[1],
                     listItem = {};
                 promises.push(Agent.getDockerInspectSocket(agent, processNetStats, nodeInspectPort)
@@ -328,7 +328,10 @@ class Agent {
                                 if (nameFlagFromCommandLine !== -1 && dockerProcess[1] === nameFlagFromCommandLine) return p;
                             }
                         });
-                        if (processListItem !== -1) Object.assign(agent.processList, { [processListItem.pid]: Object.assign(processListItem, listItem) });
+                        if (processListItem !== -1) {
+                            dockerProcesses[i].push(processListItem.pid);
+                            Object.assign(agent.processList, { [processListItem.pid]: Object.assign(processListItem, listItem) });
+                        }
                     })
                     .catch(error => {
                         console.dir(error);
