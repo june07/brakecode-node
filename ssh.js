@@ -22,11 +22,11 @@ class SSH {
           resolve({err, stdout, stderr});
         });
       } else {
-        let sshProcess = exec('ssh -p ' + (self.NSSH_SERVER_PORT || 22) + ' ' + self.UID + '@' + self.NSSH_SERVER + ' -i ' + join(homedir(), '.ssh/id_rsa-NiMS' + ' ' + SSH_OPTIONS) + ' ' + CMD, {maxBuffer: 1024 * 500}, (err, stdout, stderr) => {
+        let sshProcess = exec('ssh -4 -p ' + (self.NSSH_SERVER_PORT || 22) + ' ' + self.UID + '@' + self.NSSH_SERVER + ' -i ' + join(homedir(), '.ssh/id_rsa-NiMS' + ' ' + SSH_OPTIONS) + ' ' + CMD, {maxBuffer: 1024 * 500}, (err, stdout, stderr) => {
           if (err) return reject(stderr);
         });
-        self.tunnels[options.pid] = { pid: options.pid, ssh: sshProcess, socket: self.NSSH_SERVER + ":" + options.inspectPort };
-        resolve(self.NSSH_SERVER + ":" + options.inspectPort);
+        self.tunnels[options.pid] = { pid: options.pid, ssh: sshProcess, socket: self.NSSH_SERVER + ":" + options.tunnelPort };
+        resolve(options.tunnelPort);
       }
     });
   }
@@ -40,12 +40,13 @@ class SSH {
       .then(connection => {
         let ports = connection.stdout.toString().split(' ');
         let index = Math.floor(ports.length - Math.random() * ports.length);
-        return self.ssh(' -T -R *:' + ports[index] + ':localhost:' + inspectPort, { inspectPort, pid });
-      }).then(inspectPort => {
-        resolve(self.NSSH_SERVER + ":" + inspectPort);
+        let tunnelPort = parseInt(ports[index]);
+        return self.ssh(' -T -R *:' + tunnelPort + ':localhost:' + inspectPort, { tunnelPort, pid });
+      }).then(tunnelPort => {
+        resolve(self.NSSH_SERVER + ":" + tunnelPort);
       }).catch(error => {
         debug(error);
-        resolve(this.digTunnel(inspectPort, attempts++)); 
+        resolve(this.digTunnel(inspectPort, pid, attempts++)); 
       });
     });
   }
@@ -57,7 +58,7 @@ class SSH {
     this.NSSH_SERVER = servers[0];
   }
   getSocket(pid) {
-    return this.tunnels[pid] ? new TunnelSocket(this.tunnels[pid].socket) : undefined;
+    return this.tunnels[pid] && this.tunnels[pid] !== 'connecting' ? new TunnelSocket(this.tunnels[pid].socket) : undefined;
   }
   //privateFunction() {}
 }
@@ -67,7 +68,7 @@ class TunnelSocket {
     return {
       socket: socketString,
       host: socketString.split(':')[0],
-      port: socketString.split(':')[1]
+      port: parseInt(socketString.split(':')[1])
     }
   }
 }

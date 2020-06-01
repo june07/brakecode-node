@@ -3,7 +3,7 @@ const debug = process.env.DEBUG ? require('debug')('brakecode') : error => conso
     { exec, execFile } = require('child_process'),
     { join } = require('path'),
     { EOL, homedir, hostname, platform, release, uptime } = require('os'),
-    uuid = require('uuid/v4'),
+    uuid = require('uuid/v5'),
     psList = process.env.NODE_ENV === 'dev' ? require('../ps-list') : require('@667/ps-list'),
     inquirer = require('inquirer'),
     http = require('http');
@@ -20,7 +20,7 @@ class Agent {
         let self = this;
         self.metadata = {
             title: hostname(),
-            uuid: uuid(),
+            uuid: uuid(hostname(), 'eb328059-3001-47f0-807a-72a187219dea'),
             host: hostname(),
             content: uptime + ' ' + platform + ' ' + release
         }
@@ -230,7 +230,7 @@ class Agent {
     static updateRunningNodeProcesses(agent) {
         agent.updating = true;
         agent.processNetStatsIsResolved = false;
-        //agent.processList = {};
+        agent.processList = {};
 
         let processNetStats = (() => {
             return new Promise((resolve, reject) => {
@@ -272,7 +272,6 @@ class Agent {
                                 nodeInspectSocket: (listItem.cmd.search(/--inspect/) === -1) ? undefined : socket,
                                 inspectPort: (socket instanceof Error) ? undefined : parseInt(socket.split(':')[1]),
                                 tunnelSocket: SSH.getSocket(listItem.pid)
-                                //tunnelSocket: (socket instanceof Error) ? undefined : Agent.getTunnelSocket(plist, parseInt(socket.split(':')[1]))
                             });
                             agent.processList[listItem.pid] ? Object.assign(agent.processList[listItem.pid], listItem) : agent.processList[listItem.pid] = Object.assign({}, listItem);
                         })
@@ -281,36 +280,6 @@ class Agent {
                         }));
                 }
             });
-            /*
-            if (plistDocker) plistDocker.map(listItem => {
-                if (listItem.name.search(/^docker(?!-)(.exe)?\s?/) !== -1) {
-                    let dockerPortFlag = listItem.cmd.match(/-p (\d{1,5})(:(\d{1,5}))?/);
-                    if (!dockerPortFlag) return;
-                    let nodeInspectPort = dockerPortFlag[0].includes(':') ? dockerPortFlag[1] : 0; // dockerPortFlag should always be an array and never undefined/null.
-                    if (nodeInspectPort === 0) {
-
-                    }
-                    promises.push(Agent.getDockerInspectSocket(agent, processNetStats, nodeInspectPort)
-                        .then(socket => {
-                            return Agent.inspectPortOpenOnDockerContainer(socket);
-                        })
-                        .then(({error, socket, port}) => {
-                            Object.assign(listItem, { dockerContainer: true });
-                            Object.assign(listItem, {
-                                nodeInspectFlagSet: (listItem.cmd.search(/--inspect(?!-port)/) === -1) ? false : true,
-                                nodeInspectSocket: (listItem.cmd.search(/--inspect/) === -1) ? undefined : socket,
-                                inspectPort: (error instanceof Error) ? undefined : port,
-                                tunnelSocket: (error instanceof Error) ? undefined : Agent.getTunnelSocket(plist, parseInt(socket.split(':')[1]))
-                            }); 
-                            // Getting this far doesn't neccessarily mean that we've found a Node.js container.  Must inspect the container to find out for sure and on Windows that's a bit tough because the PPID
-                            // of the container isn't on Windows but on the HyperV host Docker creates.
-                            Object.assign(agent.processList, { [listItem.pid]: listItem });
-                        })
-                        .catch(error => {
-                            console.dir(error);
-                        }));
-                }
-            });*/
             agent.dockerProcesses.map((dockerProcess, i, dockerProcesses) => {
                 let nodeInspectPort = dockerProcess[3].match(/\d.\d.\d.\d:(\d{1,5})/)[1],
                     listItem = {};
@@ -334,7 +303,6 @@ class Agent {
                             nodeInspectSocket: (dockerProcess[2].search(/--inspect/) === -1) ? undefined : socket,
                             inspectPort: (error instanceof Error) ? undefined : port,
                             tunnelSocket: SSH.getSocket(processListItem.pid)
-                            //tunnelSocket: (error instanceof Error) ? undefined : Agent.getTunnelSocket(plist, parseInt(socket.split(':')[1]))
                         }); 
                         /* Getting this far doesn't neccessarily mean that we've found a Node.js container.  Must inspect the container to find out for sure and on Windows that's a bit tough because the PPID
                             * of the container isn't on Windows but on the HyperV host Docker creates. */
