@@ -61,4 +61,5 @@ typings/
 .next
 
 node_modules
-hello.jsbrakecode.service
+hello.js
+brakecode.service

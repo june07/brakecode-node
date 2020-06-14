@@ -24,7 +24,7 @@
   },
   "homepage": "https://brakecode.com",
   "dependencies": {
-    "@667/ps-list": "^1.0.2",
+    "@667/ps-list": "^1.0.14",
     "dotenv": "^8.2.0",
     "inquirer": "^7.1.0",
     "nodemon": "^2.0.4",

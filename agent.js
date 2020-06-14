@@ -148,8 +148,8 @@ class Agent {
         return new Promise(resolve => {
             execFile('docker', ['ps', '--filter', 'expose=9229/tcp', '--no-trunc', '--format', '{{.ID}}\t{{.Names}}\t{{.Command}}\t{{.Ports}}'], (error, stdout, stderr) => {
                 if (error) {
-                    debug(stderr);
-                    return stderr;
+                    debug(error);
+                    return error;
                 }
                 self.dockerProcesses = stdout.split('\n').filter(line => line).map(line => line.split('\t'));
                 resolve();
