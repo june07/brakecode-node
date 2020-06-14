@@ -262,7 +262,7 @@ class Agent {
             let plist = await psList({ processName: 'node' }),
                 plistDocker = await psList({ processName: 'docker' });
             let promises = [];
-            await agent.docker_ps();
+            if (plistDocker.length > 0) await agent.docker_ps();
             plist.forEach((listItem) => {
                 if (listItem.name.search(/node(.exe)?\s?/) !== -1) {
                     promises.push(Agent.getInspectSocket(agent, processNetStats, listItem.pid)
@@ -280,7 +280,7 @@ class Agent {
                         }));
                 }
             });
-            agent.dockerProcesses.map((dockerProcess, i, dockerProcesses) => {
+            if (plistDocker.length > 0) agent.dockerProcesses.map((dockerProcess, i, dockerProcesses) => {
                 let nodeInspectPort = dockerProcess[3].match(/\d.\d.\d.\d:(\d{1,5})/)[1],
                     listItem = {};
                 promises.push(Agent.getDockerInspectSocket(agent, processNetStats, nodeInspectPort)
