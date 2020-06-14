@@ -13,7 +13,7 @@ const ENV_PATH = join(NIMS_DIR, '.env');
 const N2PSocket = require('./N2PSocket.js'),
     SSHKeyManager = require('./SSHKeyManager.js'),
     Watcher = require('./Watcher.js'),
-    SSH = require('./ssh.js')();
+    SSH = require('./src/ssh.js')();
 
 class Agent {
     constructor() {

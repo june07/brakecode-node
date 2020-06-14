@@ -6,7 +6,7 @@ const debug = process.env.DEBUG ? require('debug')('brakecode:N2PSocket.js') : e
 const NIMS_DIR = join(homedir(), '.nims');
 const ENV_PATH = join(NIMS_DIR, '.env');
 const env = require('dotenv').config({path: ENV_PATH});
-const SSH = require('./ssh.js')(env);
+const SSH = require('./src/ssh.js')(env);
 
 class N2PSocket {
     constructor(Agent) {
