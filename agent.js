@@ -3,7 +3,7 @@ const debug = process.env.DEBUG ? require('debug')('brakecode') : error => conso
     { exec, execFile } = require('child_process'),
     { join } = require('path'),
     { EOL, homedir, hostname, platform, release, uptime } = require('os'),
-    uuid = require('uuid/v5'),
+    { v5: uuid } = require('uuid'),
     psList = process.env.NODE_ENV === 'dev' ? require('../ps-list') : require('@667/ps-list'),
     inquirer = require('inquirer'),
     http = require('http');
