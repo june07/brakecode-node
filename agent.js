@@ -169,9 +169,7 @@ class Agent {
         }, 100);
     }
     static getInspectSocket(Agent, netstats, pid) {
-        return new Promise((resolve) => {
-            // (async () => {
-            //    await processNetStatsResolved(Agent);
+        return new Promise(resolve => {
             netstats.then(processes => {
                 if (platform() === 'win32') {
                     processes.forEach((proc, i, processes) => {
@@ -180,14 +178,23 @@ class Agent {
                         if (i === processes.length - 1) resolve('A corresponding inspect socket was not found for Node.js process ' + pid);
                     });
                 } else {
-                    processes.forEach((proc, i, processes) => {
-                        let array = proc.replace(/\s+/g, ' ').split(' ');
-                        if (parseInt(array[6].split('/')[0]) === pid) return resolve(array[3]);
-                        if (i === processes.length - 1) resolve('A corresponding inspect socket was not found for Node.js process ' + pid);
-                    });
+                    (async () => {
+                        for (let i = 0; i < processes.length; i++) {
+                            let proc = processes[i];
+                            let array = proc.replace(/\s+/g, ' ').split(' ');
+                            if (parseInt(array[6].split('/')[0]) === pid) {
+                                let ip = await isInspectorProtocol(array[3]);
+                                if (ip) {
+                                    return resolve(array[3]);
+                                } else {
+                                    return resolve(new Error('A corresponding inspect socket was not found for Node.js process ' + pid));
+                                }
+                            }
+                        }
+                        resolve(new Error('No listening socket was not found for Node.js process ' + pid));
+                    })();
                 }
             });
-            // })();
         });
     }
     static getDockerInspectSocket(Agent, netstats, dockerPort) {
@@ -263,10 +270,10 @@ class Agent {
                 plistDocker = await psList({ processName: 'docker' });
             let promises = [];
             if (plistDocker.length > 0) await agent.docker_ps();
-            plist.forEach((listItem) => {
+            plist.forEach(listItem => {
                 if (listItem.name.search(/node(.exe)?\s?/) !== -1) {
                     promises.push(Agent.getInspectSocket(agent, processNetStats, listItem.pid)
-                        .then((socket) => {
+                        .then(socket => {
                             Object.assign(listItem, {
                                 nodeInspectFlagSet: (listItem.cmd.search(/--inspect/) === -1) ? false : true,
                                 nodeInspectSocket: (listItem.cmd.search(/--inspect/) === -1) ? undefined : socket,
@@ -275,7 +282,7 @@ class Agent {
                             });
                             agent.processList[listItem.pid] ? Object.assign(agent.processList[listItem.pid], listItem) : agent.processList[listItem.pid] = Object.assign({}, listItem);
                         })
-                        .catch((error) => {
+                        .catch(error => {
                             console.dir(error);
                         }));
                 }
@@ -328,7 +335,26 @@ class Agent {
         })();
     }
 }
-
+function isInspectorProtocol(socket) {
+    return new Promise(resolve => {
+        let ip = false;
+        let client = http.get(`http://${socket}/json`, res => {
+                res.on('data', data => {
+                    //debug(`${data}`);
+                    try {
+                        JSON.parse(data);
+                        ip = true;
+                    } catch (error) {
+                    //debug(error);
+                    }
+                    client.end();
+                });
+                res.on('end', () => {
+                    resolve(ip);
+                });
+            });
+    });
+}
 function checkENV() {
     if (! fs.existsSync(ENV_PATH)) {
         if (! fs.existsSync(NIMS_DIR)) {

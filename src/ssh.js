@@ -35,10 +35,11 @@ class SSH {
     let self = this;
     if (self.tunnels[pid] && self.tunnels[pid] !== 'connecting') return Promise.resolve(self.tunnels[pid]);
     else if (self.tunnels[pid] && self.tunnels[pid] === 'connecting') return Promise.reject('connecting');
-    else self.tunnels[pid] = 'connecting';
     return new Promise(resolve => {
+      self.tunnels[pid] = 'connecting';
       self.ssh(`ss.sh`)
       .then(connection => {
+        self.tunnels[pid] = 'connected';
         let ports = connection.stdout.toString().split(' ');
         let index = Math.floor(ports.length - Math.random() * ports.length);
         let tunnelPort = parseInt(ports[index]);
@@ -46,6 +47,7 @@ class SSH {
       }).then(tunnelPort => {
         resolve(self.NSSH_SERVER + ":" + tunnelPort);
       }).catch(error => {
+        self.tunnels[pid] = 'error';
         debug(error);
         resolve(this.digTunnel(inspectPort, pid, attempts++)); 
       });
@@ -59,7 +61,7 @@ class SSH {
     this.NSSH_SERVER = servers[0];
   }
   getSocket(pid) {
-    return this.tunnels[pid] && this.tunnels[pid] !== 'connecting' ? new TunnelSocket(this.tunnels[pid].socket) : undefined;
+    return this.tunnels[pid] && typeof this.tunnels[pid] === 'object' ? new TunnelSocket(this.tunnels[pid].socket) : undefined;
   }
   //privateFunction() {}
 }
