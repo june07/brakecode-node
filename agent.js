@@ -6,18 +6,21 @@ const debug = process.env.DEBUG ? require('debug')('brakecode') : error => conso
     { v5: uuid } = require('uuid'),
     psList = process.env.NODE_ENV === 'dev' ? require('../ps-list') : require('@667/ps-list'),
     inquirer = require('inquirer'),
-    http = require('http');
-const BRAKECODE_DIR = join(homedir(), '.brakecode');
+    http = require('http'),
+    yaml = require('js-yaml');
 const NIMS_DIR = join(homedir(), '.nims');
-const ENV_PATH = join(NIMS_DIR, '.env');
-const N2PSocket = require('./N2PSocket.js'),
+const BRAKECODE_DIR = join(homedir(), '.brakecode'),
+    ENV_PATH = join(NIMS_DIR, '.env'),
+    CONFIG_PATH = join(NIMS_DIR, 'config.yaml'),
+    N2PSocket = require('./N2PSocket.js'),
     SSHKeyManager = require('./SSHKeyManager.js'),
     Watcher = require('./Watcher.js'),
     SSH = require('./src/ssh.js')();
 
 class Agent {
-    constructor() {
+    constructor(config) {
         let self = this;
+        self.config = config;
         self.metadata = {
             title: hostname(),
             uuid: uuid(hostname(), 'eb328059-3001-47f0-807a-72a187219dea'),
@@ -156,6 +159,48 @@ class Agent {
             });
         });
     }
+    async filter(plist) {
+        let self = this,
+            filters = Object.entries(self.config.filter),
+            promises = [];
+        
+        filters.forEach(filter => {
+            let filterType = filter[0],
+                filterValues = filter[1];
+            switch(filterType) {
+                case 'app':
+                    promises.push(new Promise(resolve => {
+                        let fStrings;
+                        filterValues.forEach(app => {
+                            if (app === 'vscode') {
+                                fStrings = [
+                                    '.vscode-server'
+                                ]
+                            } else if (app === 'some other node app') {
+                                fStrings = [ 'someapp' ]
+                            }
+                            fStrings.forEach(fString => {
+                                resolve(plist.filter(item => item.cmd.includes(fString)));
+                            });
+                        });
+                    })); break;
+                case 'string':
+                    promises.push(new Promise(resolve => {
+                        filterValues.forEach(fString => {
+                            resolve(plist.filter(item => item.cmd.includes(fString)));
+                        });
+                    })); break;
+            }
+        });
+        return Promise.all(promises)
+        .then(filtered => {
+            filtered = filtered.flat().map(filteredProcess => {
+                let index = plist.findIndex(p => p.pid === filteredProcess.pid);
+                plist.splice(index, 1);
+            });
+            return plist;
+        });
+    }
     static run(agent) {
         // Check node processes 
         Agent.updateRunningNodeProcesses(agent);
@@ -270,6 +315,7 @@ class Agent {
                 plistDocker = await psList({ processName: 'docker' });
             let promises = [];
             if (plistDocker.length > 0) await agent.docker_ps();
+            plist = await agent.filter(plist);
             plist.forEach(listItem => {
                 if (listItem.name.search(/node(.exe)?\s?/) !== -1) {
                     promises.push(Agent.getInspectSocket(agent, processNetStats, listItem.pid)
@@ -391,10 +437,24 @@ function checkENV() {
         return Promise.resolve();
     }
 }
+async function loadConfig() {
+    let configuration = '---';
+    if (! fs.existsSync(CONFIG_PATH)) {
+        console.log('Creating default configuration file at ' + CONFIG_PATH + '...');
+        fs.writeFileSync(CONFIG_PATH, configuration);
+    }
+    try {
+        configuration = await yaml.safeLoad(fs.readFileSync(CONFIG_PATH, 'utf8'));
+        return Promise.resolve(configuration);
+    } catch(error) {
+        debug(error);
+    }
+}
 
 checkENV()
-.then(() => {
-    let agent = new Agent();
+.then(loadConfig)
+.then(config => {
+    let agent = new Agent(config);
     module.exports = agent;
 
     agent.start();
