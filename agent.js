@@ -15,7 +15,8 @@ const BRAKECODE_DIR = join(homedir(), '.brakecode'),
     N2PSocket = require('./N2PSocket.js'),
     SSHKeyManager = require('./SSHKeyManager.js'),
     Watcher = require('./Watcher.js'),
-    SSH = require('./src/ssh.js')();
+    SSH = require('./src/ssh.js')(),
+    FILTER_DEPTH = 2; // set to match the number of precoded applications to filter, ie vscode and nodemon
 
 class Agent {
     constructor(config) {
@@ -170,19 +171,23 @@ class Agent {
             switch(filterType) {
                 case 'app':
                     promises.push(new Promise(resolve => {
-                        let fStrings;
+                        let fStrings,
+                            promises2 = [];
                         filterValues.forEach(app => {
-                            if (app === 'vscode') {
-                                fStrings = [
-                                    '.vscode-server'
-                                ]
-                            } else if (app === 'some other node app') {
-                                fStrings = [ 'someapp' ]
-                            }
-                            fStrings.forEach(fString => {
-                                resolve(plist.filter(item => item.cmd.includes(fString)));
-                            });
+                            promises2.push(new Promise(resolve2 => {
+                                if (app === 'vscode') {
+                                    fStrings = [
+                                        '.vscode-server'
+                                    ]
+                                } else if (app === 'nodemon') {
+                                    fStrings = [ 'nodemon' ]
+                                }
+                                fStrings.forEach(fString => {
+                                    resolve2(plist.filter(item => item.cmd.includes(fString)));
+                                });
+                            }));
                         });
+                        resolve(Promise.all(promises2));
                     })); break;
                 case 'string':
                     promises.push(new Promise(resolve => {
@@ -194,7 +199,7 @@ class Agent {
         });
         return Promise.all(promises)
         .then(filtered => {
-            filtered = filtered.flat().map(filteredProcess => {
+            filtered = filtered.flat(FILTER_DEPTH).map(filteredProcess => {
                 let index = plist.findIndex(p => p.pid === filteredProcess.pid);
                 plist.splice(index, 1);
             });
