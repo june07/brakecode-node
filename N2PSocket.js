@@ -2,7 +2,7 @@ const debug = process.env.DEBUG ? require('debug')('brakecode:N2PSocket.js') : e
     { join } = require('path'),
     { homedir } = require('os'),
     SocketIO = require('socket.io-client'),
-    N2P_URL = 'https://n2p.june07.com';
+    N2P_URL = (process.env.DEBUG || process.env.DEVEL || process.env.NODE_ENV === 'dev') ? 'https://n2p-dev.brakecode.com' : 'https://n2p.brakecode.com';
 const NIMS_DIR = join(homedir(), '.nims');
 const ENV_PATH = join(NIMS_DIR, '.env');
 const env = require('dotenv').config({path: ENV_PATH});
