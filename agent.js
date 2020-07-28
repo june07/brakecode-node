@@ -8,19 +8,21 @@ const debug = process.env.DEBUG ? require('debug')('brakecode') : error => conso
     inquirer = require('inquirer'),
     http = require('http'),
     yaml = require('js-yaml');
-const NIMS_DIR = join(homedir(), '.nims');
 const BRAKECODE_DIR = join(homedir(), '.brakecode'),
-    ENV_PATH = join(NIMS_DIR, '.env'),
-    CONFIG_PATH = join(NIMS_DIR, 'config.yaml'),
+    ENV_PATH = join(BRAKECODE_DIR, '.env'),
+    CONFIG_PATH = join(BRAKECODE_DIR, 'config.yaml');
+const env = require('dotenv').config({path: ENV_PATH}),
     N2PSocket = require('./N2PSocket.js'),
     SSHKeyManager = require('./SSHKeyManager.js'),
     Watcher = require('./Watcher.js'),
-    SSH = require('./src/ssh.js')(),
-    FILTER_DEPTH = 2; // set to match the number of precoded applications to filter, ie vscode and nodemon
+    SSH = require('./src/ssh.js'),
+    FILTER_DEPTH = 2 // set to match the number of precoded applications to filter, ie vscode and nodemon
+;
 
 class Agent {
     constructor(config) {
         let self = this;
+        SSH.setAgent(self);
         self.config = config;
         self.metadata = {
             title: hostname(),
@@ -36,6 +38,7 @@ class Agent {
             check_interval: 5000
         };
         self.updating = false;
+        self.nsshServerMap = {};
 
         if (process.env.BRAKECODE_API_KEY) {
             try {
@@ -95,6 +98,7 @@ class Agent {
     }
     checkSSHTunnels() {
         let self = this;
+        if (self.nsshServerMap === undefined || (self.nsshServerMap && Object.keys(self.nsshServerMap).length === 0)) return;
         return new Promise((resolve) => {
             (function stableAgent() {
                 if (! Agent.updating) {
@@ -102,7 +106,7 @@ class Agent {
                         if (!listItem.inspectPort) return resolve();
                         SSH.digTunnel(listItem.inspectPort, listItem.pid)
                         .then(tunnelSocket => {
-                            self.processList[listItem.pid].tunnelSocket = tunnelSocket;
+                            self.processList[listItem.pid].tunnelSocket = tunnelSocket.socket;
                             resolve(tunnelSocket);
                         })
                         .catch(error => {
@@ -408,25 +412,15 @@ function isInspectorProtocol(socket) {
 }
 function checkENV() {
     if (! fs.existsSync(ENV_PATH)) {
-        if (! fs.existsSync(NIMS_DIR)) {
-            console.log('Creating NiMS directory at ' + NIMS_DIR + '...');
-            fs.mkdirSync(NIMS_DIR);
+        if (! fs.existsSync(BRAKECODE_DIR)) {
+            console.log('Creating Brakecode directory at ' + BRAKECODE_DIR + '...');
+            fs.mkdirSync(BRAKECODE_DIR);
         }
         return inquirer
         .prompt([
-            // Question 1
             {
-                name: 'NiMS_API_KEY',
-                message: 'What is your NiMS_API_KEY',
-                filter: (input) => {
-                    return new Promise(resolve => {
-                        resolve(input);
-                    });
-                }
-            },
-            {
-                name: 'UID',
-                message: 'What is your NiMS UID',
+                name: 'BRAKECODE_API_KEY',
+                message: 'What is your BRAKECODE_API_KEY',
                 filter: (input) => {
                     return new Promise(resolve => {
                         resolve(input);
@@ -443,7 +437,15 @@ function checkENV() {
     }
 }
 async function loadConfig() {
-    let configuration = '---';
+    let configuration = `
+---
+filter:
+    app:
+        - vscode
+        - nodemon
+    string:
+        - random string
+`;
     if (! fs.existsSync(CONFIG_PATH)) {
         console.log('Creating default configuration file at ' + CONFIG_PATH + '...');
         fs.writeFileSync(CONFIG_PATH, configuration);
