@@ -1,60 +1,72 @@
 const debug = process.env.DEBUG ? require('debug')('brakecode:ssh.js') : error => console.log(error),
+  dns = require('dns'),
   { exec } = require('child_process'),
   { join } = require('path'),
-  { homedir } = require('os');
-const NIMS_DIR = join(homedir(), '.nims');
-const ENV_PATH = join(NIMS_DIR, '.env'),
-  SSH_OPTIONS = '-o "ExitOnForwardFailure=yes" -o "StrictHostKeyChecking=accept-new" -o "ConnectTimeout=5"',
+  { homedir } = require('os')
+;
+const SSH_OPTIONS = '-o "ExitOnForwardFailure=yes" -o "StrictHostKeyChecking=accept-new" -o "ConnectTimeout=5"',
   ID_RSA = join(homedir(), '.ssh/', 'brakecode.id_rsa'),
-  ID_RSA_CERT = join(homedir(), '.ssh/', 'brakecode.id_rsa-cert.pub');
-require('dotenv').config({ path: ENV_PATH });
+  ID_RSA_CERT = join(homedir(), '.ssh/', 'brakecode.id_rsa-cert.pub')
+;
 
 class SSH {
   constructor() {
-    this.UID = process.env.UID;
+    this.BRAKECODE_API_KEY = process.env.BRAKECODE_API_KEY;
     this.NSSH_SERVER = process.env.NSSH_SERVER || 'nssh.brakecode.com';
     this.NSSH_SERVER_PORT = process.env.NSSH_SERVER_PORT || 22222;
     this.NSSH_SERVER_TIMEOUT = process.env.NSSH_SERVER_TIMEOUT || 30000;
+    this.TUNNEL_RECORDS_REMOVAL_INTERVAL = process.env.TUNNEL_RECORDS_REMOVAL_INTERVAL || 600;
     this.tunnels = {};
+    this.intervals = {
+      removeOldTunnelRecords: setInterval(this.removeOldTunnelRecords.bind(this), this.TUNNEL_RECORDS_REMOVAL_INTERVAL)
+    }
+    this.Agent;
+  }
+  setAgent(Agent) {
+    this.Agent = Agent;
+  }
+  removeOldTunnelRecords() {
+    Object.entries(this.tunnels).forEach(kv => {
+      if (kv[1].state === 'closed') delete this.tunnels[kv[0]];
+    });
   }
   ssh(CMD, options) {
     let self = this;
     return new Promise((resolve, reject) => {
       if (CMD.startsWith('ss.sh')) {
-        exec('ssh -p ' + (self.NSSH_SERVER_PORT) + ' ' + self.UID + '@' + self.NSSH_SERVER + ' -i ' + ID_RSA + ' -i ' + ID_RSA_CERT + ' ' + SSH_OPTIONS + ' ' + CMD, { maxBuffer: 1024 * 500 }, (err, stdout, stderr) => {
-          if (err) return reject(err);
-          resolve({ err, stdout, stderr });
+        exec('ssh -p ' + self.NSSH_SERVER_PORT + ' "' + self.BRAKECODE_API_KEY + '"@' + self.NSSH_SERVER + ' -i ' + ID_RSA + ' -i ' + ID_RSA_CERT + ' ' + SSH_OPTIONS + ' -T', { maxBuffer: 1024 * 500 }, (err, stdout, stderr) => {
+          if (stdout.includes('unused ports:')) return resolve({ err, stdout, stderr });
+          else if (err) return reject(err);
         });
       } else {
-        let promises = [ new Promise(resolve => { setTimeout(resolve, self.NSSH_SERVER_TIMEOUT, new Error('timed out')) }) ];
+        let timeoutId;
+        let promises = [ new Promise(resolve => { timeoutId = setTimeout(resolve, self.NSSH_SERVER_TIMEOUT, new Error('timed out')) }) ];
         let nsshServerPromise;
-        let sshProcess = exec('ssh -v -4 -p ' + (self.NSSH_SERVER_PORT) + ' ' + self.UID + '@' + self.NSSH_SERVER + ' -i ' + ID_RSA + ' -i ' + ID_RSA_CERT + ' ' + SSH_OPTIONS + ' ' + CMD, { maxBuffer: 1024 * 500 }, (err, stdout, stderr) => {
+        let sshProcess = exec('ssh -v -4 -p ' + self.NSSH_SERVER_PORT + ' "' + self.BRAKECODE_API_KEY + '"@' + self.NSSH_SERVER + ' -i ' + ID_RSA + ' -i ' + ID_RSA_CERT + ' ' + SSH_OPTIONS + ' ' + CMD, { maxBuffer: 1024 * 500 }, (err, stdout, stderr) => {
           if (err) return reject(stderr);
         });
         sshProcess.on('close', close => {
           self.tunnels[options.pid].state = 'closed';
         });
         sshProcess.stderr.on('data', data => {
-          promises.push(new Promise(resolve => {
-            let nsshServer = data.match(/nsshost\s(nssh0*([0-9]|[1-8][0-9]|9[0-9]|[1-8][0-9]{2}|9[0-8][0-9]|99[0-9]).brakecode.com)/, 'g');
-            debug(nsshServer);
-            if (nsshServer && nsshServer.length > 0) resolve(nsshServer[1]);
-          }));
-        });
-        sshProcess.stdout.on('data', data => { 
-          Promise.race(promises)
-          .then(nsshServer => {
-            if (nsshServer instanceof Error) {
-              return reject(nsshServer);
+          let nsshServerUUID = data.match(/nsshost\s([0-9A-F]{8}-[0-9A-F]{4}-4[0-9A-F]{3}-[89AB][0-9A-F]{3}-[0-9A-F]{12})/i);
+          if (nsshServerUUID && nsshServerUUID.length > 0) nsshServerUUID = nsshServerUUID[1];
+          if (nsshServerUUID) {
+            clearTimeout(timeoutId);
+            debug(nsshServerUUID);
+            if (nsshServerUUID instanceof Error) {
+              return reject(nsshServerUUID);
             }
+            let nsshServer = self.Agent.nsshServerMap[nsshServerUUID];
             self.tunnels[options.pid] = {
               pid: options.pid,
               ssh: sshProcess,
-              socket: nsshServer + ":" + options.tunnelPort,
+              socket: nsshServer.fqdn + ":" + options.tunnelPort,
+              nsshServerAddress: nsshServer.address,
               state: 'connected'
             };
-            resolve(self.tunnels[options.pid].socket);
-          });
+            resolve(self.tunnels[options.pid]);
+          }
         });
       }
     });
@@ -68,11 +80,11 @@ class SSH {
       self.tunnels[pid] = { ['state']: 'connecting' };
       self.ssh(`ss.sh`)
         .then(connection => {
-          self.tunnels[pid].state = 'connected';
-          let ports = connection.stdout.toString().split(' ');
+          let ports = connection.stdout.match(/unused\sports:\s.*/) ? connection.stdout.match(/unused\sports:\s.*/)[0].split(':')[1].trim().toString().split(' ') : [];
+          if (ports.length === 0) throw new Error('Ssh server is out of free ports.');
           let index = Math.floor(ports.length - Math.random() * ports.length);
           let tunnelPort = parseInt(ports[index]);
-          return self.ssh(' -T -R *:' + tunnelPort + ':localhost:' + inspectPort, { tunnelPort, pid });
+          return self.ssh(' -N -R *:' + tunnelPort + ':localhost:' + inspectPort, { tunnelPort, pid });
         }).then(tunnelSocket => {
           resolve(tunnelSocket);
         }).catch(error => {
@@ -94,29 +106,24 @@ class SSH {
     let keypair;
     return keypair;
   }
-  updateNSSH(servers) {
-    this.NSSH_SERVER = servers[0];
-  }
   getSocket(pid) {
-    return this.tunnels[pid] && this.tunnels[pid].socket ? new TunnelSocket(this.tunnels[pid].socket) : undefined;
+    return this.tunnels[pid] && this.tunnels[pid].socket ? new TunnelSocket(this.tunnels[pid]) : undefined;
   }
   //privateFunction() {}
 }
 
 class TunnelSocket {
-  constructor(socketString) {
+  constructor(tunnel) {
+    let socket = tunnel.socket;
     return {
-      socket: socketString,
-      host: socketString.split(':')[0],
-      port: parseInt(socketString.split(':')[1])
+      socket,
+      host: socket.split(':')[0],
+      port: parseInt(socket.split(':')[1]),
+      address: tunnel.nsshServerAddress
     }
   }
 }
 
 //function publicFunction() {}
 
-module.exports = () => { return new SSH() };
-
-/*(() => {
-  new SSH().digTunnel('adrian@onezerohosting.com', 9259);
-})();*/
+module.exports = new SSH();
