@@ -64,7 +64,7 @@ class SSHKeyManager {
     generateKeyCertificate() {
         debug('Generating Key Certificate...');
         let self = this;
-        self.Agent.controlSocket.io.emit('generateSSH_KeyCert', { key: self.key })
+        if (self.Agent.controlSocket.io) self.Agent.controlSocket.io.emit('generateSSH_KeyCert', { key: self.key })
         .on('SSH_KeyCert', publicKey => {
             fs.writeFileSync(ID_RSA_CERT, publicKey, { mode: '0600' });
             fs.chmodSync(ID_RSA_CERT, '0600'); // The mode option above is not working?!
