@@ -7,6 +7,7 @@ const debug = process.env.DEBUG ? require('debug')('brakecode') : error => conso
     psList = process.env.NODE_ENV === 'dev' ? require('../ps-list') : require('@667/ps-list'),
     inquirer = require('inquirer'),
     http = require('http'),
+    dns = require('dns').promises,
     yaml = require('js-yaml');
 const BRAKECODE_DIR = join(homedir(), '.brakecode'),
     ENV_PATH = join(BRAKECODE_DIR, '.env'),
@@ -15,14 +16,17 @@ const env = require('dotenv').config({path: ENV_PATH}),
     N2PSocket = require('./N2PSocket.js'),
     SSHKeyManager = require('./SSHKeyManager.js'),
     Watcher = require('./Watcher.js'),
-    SSH = require('./src/ssh.js'),
+    ssh = require('./src/ssh.js'),
     FILTER_DEPTH = 2 // set to match the number of precoded applications to filter, ie vscode and nodemon
 ;
+
+let lookups = [ 'namespace-apikey.brakecode.com', 'publickey.brakecode.com' ];
 
 class Agent {
     constructor(config) {
         let self = this;
-        SSH.setAgent(self);
+        self.lookups = lookups;
+        self.SSH = new ssh(self);
         self.config = config;
         self.metadata = {
             title: hostname(),
@@ -104,7 +108,7 @@ class Agent {
                 if (! Agent.updating) {
                     Object.values(self.processList).forEach(listItem => {
                         if (!listItem.inspectPort) return resolve();
-                        SSH.digTunnel(listItem.inspectPort, listItem.pid)
+                        self.SSH.digTunnel(listItem.inspectPort, listItem.pid)
                         .then(tunnelSocket => {
                             self.processList[listItem.pid].tunnelSocket = tunnelSocket.socket;
                             resolve(tunnelSocket);
@@ -333,7 +337,7 @@ class Agent {
                                 nodeInspectFlagSet: (listItem.cmd.search(/--inspect/) === -1) ? false : true,
                                 nodeInspectSocket: (listItem.cmd.search(/--inspect/) === -1) ? undefined : socket,
                                 inspectPort: (socket instanceof Error) ? undefined : parseInt(socket.split(':')[1]),
-                                tunnelSocket: SSH.getSocket(listItem.pid)
+                                tunnelSocket: agent.SSH.getSocket(listItem.pid)
                             });
                             agent.processList[listItem.pid] ? Object.assign(agent.processList[listItem.pid], listItem) : agent.processList[listItem.pid] = Object.assign({}, listItem);
                         })
@@ -364,7 +368,7 @@ class Agent {
                             nodeInspectFlagSet: (dockerProcess[2].search(/--inspect(?!-port)/) === -1) ? false : true,
                             nodeInspectSocket: (dockerProcess[2].search(/--inspect/) === -1) ? undefined : socket,
                             inspectPort: (error instanceof Error) ? undefined : port,
-                            tunnelSocket: SSH.getSocket(processListItem.pid)
+                            tunnelSocket: agent.SSH.getSocket(processListItem.pid)
                         }); 
                         /* Getting this far doesn't neccessarily mean that we've found a Node.js container.  Must inspect the container to find out for sure and on Windows that's a bit tough because the PPID
                             * of the container isn't on Windows but on the HyperV host Docker creates. */
@@ -423,14 +427,19 @@ function checkENV() {
                 message: 'What is your BRAKECODE_API_KEY',
                 filter: (input) => {
                     return new Promise(resolve => {
-                        resolve(input);
+                        resolve(input.trim());
                     });
+                },
+                validate: function(input) {
+                    if (! input.match(/[0-9a-fA-F]{8}\-[0-9a-fA-F]{4}\-[0-9a-fA-F]{4}\-[0-9a-fA-F]{4}\-[0-9a-fA-F]{12}/)) return('The API Key entered is not valid.');
+                    else return(null, true);
                 }
             }
         ])
         .then(answers => {
-            console.log('Saving environment variables to ' + ENV_PATH + '...')
+            console.log('Saving environment variables to ' + ENV_PATH + '...');
             fs.writeFileSync(ENV_PATH, Object.entries(answers).map(item => item[0] + '=' + item[1]).toString().replace(',', EOL) + EOL);
+            Object.entries(answers).map(item => process.env[item[0]]=`${item[1]}`);
         });
     } else {
         return Promise.resolve();
@@ -457,11 +466,34 @@ filter:
         debug(error);
     }
 }
+async function doLookups() {
+    await dns.setServers(['1.1.1.1', '8.8.8.8']);
+    lookups = await Promise.all(lookups.map(lookup => {
+        return dns.resolve(lookup, 'TXT')
+        .then(records => {
+            let key = records[0] ? records[0][0] ? records[0][0] : records[0] : undefined;
+            if (!key) {
+                console.log(new Error(`Error getting ${lookup}.`));
+                process.exit(1);
+            }
+            return { [`${lookup}`]: key };
+        })
+        .catch(error => {
+            debug(error);
+            console.log(error.message);
+            process.exit(1);
+        });
+    }));
+    lookups.reduce((acc, cur) => { acc[`${Object.keys(cur)[0]}`] = Object.values(cur)[0] });
+    lookups = lookups[0];
+}
 
 checkENV()
+.then(doLookups)
 .then(loadConfig)
 .then(config => {
     let agent = new Agent(config);
+    agent.apikeyHashedUUID = uuid(process.env.BRAKECODE_API_KEY, lookups['namespace-apikey.brakecode.com']);
     module.exports = agent;
 
     agent.start();

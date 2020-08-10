@@ -10,7 +10,8 @@ const SSH_OPTIONS = '-o "ExitOnForwardFailure=yes" -o "StrictHostKeyChecking=acc
 ;
 
 class SSH {
-  constructor() {
+  constructor(Agent) {
+    this.Agent = Agent;
     this.BRAKECODE_API_KEY = process.env.BRAKECODE_API_KEY;
     this.NSSH_SERVER = process.env.NSSH_SERVER || 'nssh.brakecode.com';
     this.NSSH_SERVER_PORT = process.env.NSSH_SERVER_PORT || 22222;
@@ -22,9 +23,6 @@ class SSH {
     }
     this.Agent;
   }
-  setAgent(Agent) {
-    this.Agent = Agent;
-  }
   removeOldTunnelRecords() {
     Object.entries(this.tunnels).forEach(kv => {
       if (kv[1].state === 'closed') delete this.tunnels[kv[0]];
@@ -34,7 +32,7 @@ class SSH {
     let self = this;
     return new Promise((resolve, reject) => {
       if (CMD.startsWith('ss.sh')) {
-        exec('ssh -p ' + self.NSSH_SERVER_PORT + ' "' + self.BRAKECODE_API_KEY + '"@' + self.NSSH_SERVER + ' -i ' + ID_RSA + ' -i ' + ID_RSA_CERT + ' ' + SSH_OPTIONS + ' -T', { maxBuffer: 1024 * 500 }, (err, stdout, stderr) => {
+        exec('ssh -p ' + self.NSSH_SERVER_PORT + ' "' + self.Agent.apikeyHashedUUID + '"@' + self.NSSH_SERVER + ' -i ' + ID_RSA + ' -i ' + ID_RSA_CERT + ' ' + SSH_OPTIONS + ' -T', { maxBuffer: 1024 * 500 }, (err, stdout, stderr) => {
           if (stdout.includes('unused ports:')) return resolve({ err, stdout, stderr });
           else if (err) return reject(err);
         });
@@ -42,7 +40,7 @@ class SSH {
         let timeoutId;
         let promises = [ new Promise(resolve => { timeoutId = setTimeout(resolve, self.NSSH_SERVER_TIMEOUT, new Error('timed out')) }) ];
         let nsshServerPromise;
-        let sshProcess = exec('ssh -v -4 -p ' + self.NSSH_SERVER_PORT + ' "' + self.BRAKECODE_API_KEY + '"@' + self.NSSH_SERVER + ' -i ' + ID_RSA + ' -i ' + ID_RSA_CERT + ' ' + SSH_OPTIONS + ' ' + CMD, { maxBuffer: 1024 * 500 }, (err, stdout, stderr) => {
+        let sshProcess = exec('ssh -v -4 -p ' + self.NSSH_SERVER_PORT + ' "' + self.Agent.apikeyHashedUUID + '"@' + self.NSSH_SERVER + ' -i ' + ID_RSA + ' -i ' + ID_RSA_CERT + ' ' + SSH_OPTIONS + ' ' + CMD, { maxBuffer: 1024 * 500 }, (err, stdout, stderr) => {
           if (err) return reject(stderr);
         });
         sshProcess.on('close', close => {
@@ -126,4 +124,4 @@ class TunnelSocket {
 
 //function publicFunction() {}
 
-module.exports = new SSH();
+module.exports = SSH;
