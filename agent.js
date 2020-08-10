@@ -1,3 +1,4 @@
+#!/usr/bin/env node
 const debug = process.env.DEBUG ? require('debug')('brakecode') : error => console.log(error),
     fs = require('fs'),
     { exec, execFile } = require('child_process'),
