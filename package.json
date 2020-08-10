@@ -30,6 +30,8 @@
     "js-yaml": "^3.14.0",
     "nodemon": "^2.0.4",
     "socket.io-client": "^2.3.0",
+    "tweetnacl": "^1.0.3",
+    "tweetnacl-util": "^0.15.1",
     "uuid": "^8.1.0"
   },
   "devDependencies": {

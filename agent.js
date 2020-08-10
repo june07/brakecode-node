@@ -385,7 +385,7 @@ class Agent {
                     agent.updating = false;
                     let formattedMetadata = agent.formatMetadata(agent.processList);
                     //debug(`Formatted metadata: ${JSON.stringify(formattedMetadata)}`);
-                    agent.controlSocket.io.emit('metadata', formattedMetadata);
+                    if (agent.controlSocket.io) agent.controlSocket.io.emit('metadata', formattedMetadata);
                 });
         })();
     }
