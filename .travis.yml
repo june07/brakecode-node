@@ -20,5 +20,5 @@ deploy:
 
 deploy:
   provider: npm
-  email: "667@onezerohosting.com"
+  email: "667@june07.com"
   api_key: "$NPM_TOKEN"
