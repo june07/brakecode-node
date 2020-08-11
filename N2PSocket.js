@@ -26,7 +26,7 @@ class N2PSocket {
             self.Agent.inspectNode(args.nodePID, self.io);
         })
         .on('metadata', data => {
-            debug(data);
+            //debug(data);
         })
         .on('connect_error', error => {
             console.dir(error.message);
