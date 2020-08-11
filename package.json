@@ -7,7 +7,7 @@
     "test": "exit 0"
   },
   "bin": {
-    "agent": "./agent.js"
+    "brakecode-agent": "./agent.js"
   },
   "repository": {
     "type": "git",
