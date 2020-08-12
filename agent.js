@@ -174,6 +174,7 @@ class Agent {
             filters = Object.entries(self.config.filter),
             promises = [];
         
+        promises.push(Promise.resolve(plist.filter(item => item.cmd.includes('brakecode-agent'))));
         filters.forEach(filter => {
             let filterType = filter[0],
                 filterValues = filter[1];
