@@ -14,7 +14,7 @@ class SSH {
     this.Agent = Agent;
     this.BRAKECODE_API_KEY = process.env.BRAKECODE_API_KEY;
     this.NSSH_SERVER = process.env.NSSH_SERVER || 'nssh.brakecode.com';
-    this.NSSH_SERVER_PORT = process.env.NSSH_SERVER_PORT || 22222;
+    this.NSSH_SERVER_PORT = process.env.NSSH_SERVER_PORT || 22667;
     this.NSSH_SERVER_TIMEOUT = process.env.NSSH_SERVER_TIMEOUT || 30000;
     this.TUNNEL_RECORDS_REMOVAL_INTERVAL = process.env.TUNNEL_RECORDS_REMOVAL_INTERVAL || 600;
     this.tunnels = {};
