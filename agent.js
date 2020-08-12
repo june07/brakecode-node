@@ -190,6 +190,8 @@ class Agent {
                                     ]
                                 } else if (app === 'nodemon') {
                                     fStrings = [ 'nodemon' ]
+                                } else if (app === 'pm2') {
+                                    fStrings = [ 'pm2' ]
                                 }
                                 fStrings.forEach(fString => {
                                     resolve2(plist.filter(item => item.cmd.includes(fString)));
@@ -421,27 +423,32 @@ function checkENV() {
             console.log('Creating Brakecode directory at ' + BRAKECODE_DIR + '...');
             fs.mkdirSync(BRAKECODE_DIR);
         }
-        return inquirer
-        .prompt([
-            {
-                name: 'BRAKECODE_API_KEY',
-                message: 'What is your BRAKECODE_API_KEY',
-                filter: (input) => {
-                    return new Promise(resolve => {
-                        resolve(input.trim());
-                    });
-                },
-                validate: function(input) {
-                    if (! input.match(/[0-9a-fA-F]{8}\-[0-9a-fA-F]{4}\-[0-9a-fA-F]{4}\-[0-9a-fA-F]{4}\-[0-9a-fA-F]{12}/)) return('The API Key entered is not valid.');
-                    else return(null, true);
+        if (! process.env.BRAKECODE_API_KEY) {
+            return inquirer
+            .prompt([
+                {
+                    name: 'BRAKECODE_API_KEY',
+                    message: 'What is your BRAKECODE_API_KEY',
+                    filter: (input) => {
+                        return new Promise(resolve => {
+                            resolve(input.trim());
+                        });
+                    },
+                    validate: function(input) {
+                        if (! input.match(/[0-9a-fA-F]{8}\-[0-9a-fA-F]{4}\-[0-9a-fA-F]{4}\-[0-9a-fA-F]{4}\-[0-9a-fA-F]{12}/)) return('The API Key entered is not valid.');
+                        else return(null, true);
+                    }
                 }
-            }
-        ])
-        .then(answers => {
-            console.log('Saving environment variables to ' + ENV_PATH + '...');
-            fs.writeFileSync(ENV_PATH, Object.entries(answers).map(item => item[0] + '=' + item[1]).toString().replace(',', EOL) + EOL);
-            Object.entries(answers).map(item => process.env[item[0]]=`${item[1]}`);
-        });
+            ])
+            .then(answers => {
+                console.log('Saving environment variables to ' + ENV_PATH + '...');
+                fs.writeFileSync(ENV_PATH, Object.entries(answers).map(item => item[0] + '=' + item[1]).toString().replace(',', EOL) + EOL);
+                Object.entries(answers).map(item => process.env[item[0]]=`${item[1]}`);
+                Promise.resolve();
+            });
+        } else {
+            return Promise.resolve();
+        }
     } else {
         return Promise.resolve();
     }
@@ -453,6 +460,7 @@ filter:
     app:
         - vscode
         - nodemon
+        - pm2
     string:
         - random string
 `;
