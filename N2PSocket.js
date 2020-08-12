@@ -1,4 +1,4 @@
-const debug = process.env.DEBUG ? require('debug')('brakecode:N2PSocket.js') : error => console.log(error),
+const debug = require('debug')('brakecode:N2PSocket.js'),
     { v5: uuid } = require('uuid'),
     nacl = require('tweetnacl'),
     crypto = require('crypto')

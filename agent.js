@@ -143,7 +143,7 @@ class Agent {
                 if (error) {
                     debug(stderr);
                 }
-                console.log(stdout);
+                console.log(`signalProcess(): ${stdout}`);
             });
         } else if (platform !== 'win32') {
             // if linux
@@ -152,7 +152,7 @@ class Agent {
                     debug(stderr);
                     throw error;
                 }
-                console.log(stdout);
+                console.log(`signalProcess(): ${stdout}`);
             });
         }
     }

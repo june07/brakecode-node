@@ -1,4 +1,4 @@
-const debug = process.env.DEBUG ? require('debug')('brakecode:SSHKeyManager.js') : error => console.log(error),
+const debug = require('debug')('brakecode:SSHKeyManager.js'),
     fs = require('fs'),
     { exec } = require('child_process'),
     { join } = require('path'),
@@ -54,7 +54,6 @@ class SSHKeyManager {
             });
         })
         .then((stdout) => {
-            console.log(stdout);
             return self.readKeyFile(ID_RSA);
         })
         .then((keydata) => {

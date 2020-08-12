@@ -1,4 +1,4 @@
-const debug = process.env.DEBUG ? require('debug')('brakecode:ssh.js') : error => console.log(error),
+const debug = require('debug')('brakecode:ssh.js'),
   dns = require('dns'),
   { exec } = require('child_process'),
   { join } = require('path'),
