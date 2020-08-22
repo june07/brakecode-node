@@ -12,7 +12,9 @@ const debug = require('debug')('brakecode'),
     yaml = require('js-yaml');
 const BRAKECODE_DIR = join(homedir(), '.brakecode'),
     ENV_PATH = join(BRAKECODE_DIR, '.env'),
-    CONFIG_PATH = join(BRAKECODE_DIR, 'config.yaml');
+    CONFIG_PATH = join(BRAKECODE_DIR, 'config.yaml'),
+    NAMESPACE_APIKEY_NAME = process.env.NODE_ENV === 'dev' ? 'namespace-apikey-dev.brakecode.com' : 'namespace-apikey.brakecode.com'
+;
 const env = require('dotenv').config({path: ENV_PATH}),
     N2PSocket = require('./N2PSocket.js'),
     SSHKeyManager = require('./SSHKeyManager.js'),
@@ -21,7 +23,9 @@ const env = require('dotenv').config({path: ENV_PATH}),
     FILTER_DEPTH = 2 // set to match the number of precoded applications to filter, ie vscode and nodemon
 ;
 
-let lookups = [ 'namespace-apikey.brakecode.com', 'publickey.brakecode.com' ];
+let lookups = process.env.NODE_ENV === 'dev' ?
+    [ NAMESPACE_APIKEY_NAME, 'publickey-dev.brakecode.com' ] :
+    [ NAMESPACE_APIKEY_NAME, 'publickey.brakecode.com' ];
 
 class Agent {
     constructor(config) {
@@ -43,7 +47,7 @@ class Agent {
             check_interval: 5000
         };
         self.updating = false;
-        self.nsshServerMap = {};
+        self.nsshServerMap = [];
 
         if (process.env.BRAKECODE_API_KEY) {
             try {
@@ -103,7 +107,7 @@ class Agent {
     }
     checkSSHTunnels() {
         let self = this;
-        if (self.nsshServerMap === undefined || (self.nsshServerMap && Object.keys(self.nsshServerMap).length === 0)) return;
+        if (self.nsshServerMap === undefined || (self.nsshServerMap && self.nsshServerMap.length === 0)) return;
         return new Promise((resolve) => {
             (function stableAgent() {
                 if (! Agent.updating) {
@@ -334,7 +338,7 @@ class Agent {
             if (plistDocker.length > 0) await agent.docker_ps();
             plist = await agent.filter(plist);
             plist.forEach(listItem => {
-                if (listItem.name.search(/node(.exe)?\s?/) !== -1) {
+                if (listItem.name.search(/node(.exe)?\s?/) !== -1 && listItem.cmd.search(/^node/) !== -1) {
                     promises.push(Agent.getInspectSocket(agent, processNetStats, listItem.pid)
                         .then(socket => {
                             Object.assign(listItem, {
@@ -503,7 +507,7 @@ checkENV()
 .then(loadConfig)
 .then(config => {
     let agent = new Agent(config);
-    agent.apikeyHashedUUID = uuid(process.env.BRAKECODE_API_KEY, lookups['namespace-apikey.brakecode.com']);
+    agent.apikeyHashedUUID = uuid(process.env.BRAKECODE_API_KEY, lookups[NAMESPACE_APIKEY_NAME]);
     module.exports = agent;
 
     agent.start();

@@ -13,8 +13,8 @@ class SSH {
   constructor(Agent) {
     this.Agent = Agent;
     this.BRAKECODE_API_KEY = process.env.BRAKECODE_API_KEY;
-    this.NSSH_SERVER = process.env.NSSH_SERVER || 'nssh.brakecode.com';
-    this.NSSH_SERVER_PORT = process.env.NSSH_SERVER_PORT || 22667;
+    this.NSSH_SERVER = process.env.NSSH_SERVER ? process.env.NSSH_SERVER : process.env.NODE_ENV === 'dev' ? 'nssh-dev.brakecode.com' : 'nssh.brakecode.com';
+    this.NSSH_SERVER_PORT = process.env.NSSH_SERVER_PORT ? process.env.NSSH_SERVER_PORT : process.env.NODE_ENV === 'dev' ? 22666 : 22667;
     this.NSSH_SERVER_TIMEOUT = process.env.NSSH_SERVER_TIMEOUT || 30000;
     this.TUNNEL_RECORDS_REMOVAL_INTERVAL = process.env.TUNNEL_RECORDS_REMOVAL_INTERVAL || 600;
     this.tunnels = {};
@@ -55,12 +55,13 @@ class SSH {
             if (nsshServerUUID instanceof Error) {
               return reject(nsshServerUUID);
             }
-            let nsshServer = self.Agent.nsshServerMap[nsshServerUUID];
+            let nsshServer = self.Agent.nsshServerMap.find(server => server.uuid === nsshServerUUID);
+            if (nsshServer === undefined) return reject(new Error(`Mapping missing for nssh server: ${nsshServerUUID}`));
             self.tunnels[options.pid] = {
               pid: options.pid,
               ssh: sshProcess,
               socket: nsshServer.fqdn + ":" + options.tunnelPort,
-              nsshServerAddress: nsshServer.address,
+              //nsshServerAddress: nsshServer.address,
               state: 'connected'
             };
             resolve(self.tunnels[options.pid]);
