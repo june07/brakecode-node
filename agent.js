@@ -1,11 +1,11 @@
 #!/usr/bin/env node
+const fs = require('fs');
 const debug = require('debug')('brakecode'),
-    fs = require('fs'),
     { exec, execFile } = require('child_process'),
     { join } = require('path'),
     { EOL, homedir, hostname, platform, release, uptime } = require('os'),
     { v5: uuid } = require('uuid'),
-    psList = process.env.NODE_ENV === 'dev' ? require('../ps-list') : require('@667/ps-list'),
+    psList = process.env.NODE_ENV === 'dev' && fs.existsSync('../ps-list') ? require('../ps-list') : require('@667/ps-list'),
     inquirer = require('inquirer'),
     http = require('http'),
     dns = require('dns').promises,
