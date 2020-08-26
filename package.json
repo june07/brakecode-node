@@ -1,6 +1,6 @@
 {
   "name": "brakecode",
-  "version": "0.0.29",
+  "version": "0.1.0",
   "description": "Brakecode is software that runs on your hosts.  It manages telemetry data including reports and makes them available for analysis.  The Brakecode NPM package is open-source.",
   "main": "brakecode.js",
   "scripts": {
@@ -35,7 +35,8 @@
     "socket.io-client": "^2.3.0",
     "tweetnacl": "^1.0.3",
     "tweetnacl-util": "^0.15.1",
-    "uuid": "^8.3.0"
+    "uuid": "^8.3.0",
+    "which": "^2.0.2"
   },
   "devDependencies": {
     "debug": "^4.1.1",

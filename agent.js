@@ -9,7 +9,9 @@ const debug = require('debug')('brakecode'),
     inquirer = require('inquirer'),
     http = require('http'),
     dns = require('dns').promises,
-    yaml = require('js-yaml');
+    yaml = require('js-yaml'),
+    which = require('which')
+;
 const BRAKECODE_DIR = join(homedir(), '.brakecode'),
     ENV_PATH = join(BRAKECODE_DIR, '.env'),
     CONFIG_PATH = join(BRAKECODE_DIR, 'config.yaml'),
@@ -240,6 +242,7 @@ class Agent {
                 if (platform() === 'win32') {
                     processes.forEach((proc, i, processes) => {
                         let array = proc.replace(/\s+/g, ' ').split(' ');
+                        // array[4] pid, array[1] socket
                         if (parseInt(array[4]) === pid) return resolve(array[1]);
                         if (i === processes.length - 1) resolve('A corresponding inspect socket was not found for Node.js process ' + pid);
                     });
@@ -247,11 +250,12 @@ class Agent {
                     (async () => {
                         for (let i = 0; i < processes.length; i++) {
                             let proc = processes[i];
-                            let array = proc.replace(/\s+/g, ' ').split(' ');
-                            if (parseInt(array[6].split('/')[0]) === pid) {
-                                let ip = await isInspectorProtocol(array[3]);
+                            let foundPId = proc.match(/\spid:(.*)/)[1],
+                                foundListeningSocket = proc.match(/^listening:(.*)\s/)[1];
+                            if (parseInt(foundPId) === pid) {
+                                let ip = await isInspectorProtocol(foundListeningSocket);
                                 if (ip) {
-                                    return resolve(array[3]);
+                                    return resolve(foundListeningSocket);
                                 } else {
                                     return resolve(new Error('A corresponding inspect socket was not found for Node.js process ' + pid));
                                 }
@@ -318,14 +322,31 @@ class Agent {
                         resolve(output);
                     });
                 } else {
-                    exec('/bin/netstat -lnp | /bin/grep node', (error, stdout, stderr) => {
-                        if (error) {
-                            debug(stderr);
-                            reject(error);
-                        }
-                        let output = stdout.trim().split(EOL);
-                        agent.processNetStatsIsResolved = true;
-                        resolve(output);
+                    which('netstat')
+                    .then(netstat => {
+                        exec(`${netstat} -tlnp | grep node | awk 'BEGIN {FS=" "}{split($7,processInfoArray,"/"); print "listening:"$4" pid:"processInfoArray[1]}'`, (error, stdout, stderr) => {
+                            if (error) {
+                                debug(stderr);
+                                reject(error);
+                            }
+                            let output = stdout.trim().split(EOL);
+                            agent.processNetStatsIsResolved = true;
+                            resolve(output);
+                        });
+                    })
+                    .catch(error => {
+                        which('ss')
+                        .then(ss => {
+                            exec(`${ss} -tlnp | grep node | awk 'BEGIN {FS=" "}{split($6,processInfoArray,","); split(processInfoArray[2],pid,"="); print "listening:"$4" pid:"pid[2]}'`, (error, stdout, stderr) => {
+                                if (error) {
+                                    debug(stderr);
+                                    reject(error);
+                                }
+                                let output = stdout.trim().split(EOL);
+                                agent.processNetStatsIsResolved = true;
+                                resolve(output);
+                            });
+                        });
                     });
                 }
             });
