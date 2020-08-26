@@ -217,6 +217,7 @@ class Agent {
         });
         return Promise.all(promises)
         .then(filtered => {
+            if (filtered.length === 0) return filtered;
             filtered = filtered.flat(FILTER_DEPTH).map(filteredProcess => {
                 let index = plist.findIndex(p => p.pid === filteredProcess.pid);
                 plist.splice(index, 1);
