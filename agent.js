@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-require('@babel/polyfill');
+require('core-js-bundle');
 const fs = require('fs');
 const debug = require('debug')('brakecode'),
     { exec, execFile } = require('child_process'),
