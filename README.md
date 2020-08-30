@@ -3,10 +3,30 @@
 Brakecode is software that runs on your hosts.  It manages telemetry data including reports and makes them available for analysis.  The Brakecode NPM package is open-source.
 
 # Current Features
+  - PaDS Secure (certificate based SSH) Remote Debugging
+    * Fully managed SSH tunnels
+    * Multiple tunnels per host
+    * Multiple hosts per user
   - Node.js Diagnostic Reports
     > Delivers a JSON-formatted diagnostic summary, written to ~~a file~~ **anywhere**.
 
-## Installation
+# PADS
+## Installation for PADS usage...
+`npm install -g brakecode` or run with npx `npx brakecode`
+
+![Running BrakeCODE agent](https://github.brakecode.com/image/brakecode-node-npx-run.gif)
+You will then be able to access your V8 debugger sessions from your dashboard.  Further if you are logged into the NiM client, you can access remote sessions there as well.  To open remote sessions, you must be logged into the BrakeCODE dashboard, otherwise NiM will simply show session data.
+
+![BrakeCODE PADS panel](https://github.brakecode.com/image/brakecode-dashboard-1.png)
+
+Login to BrakeCODE dashboard from NiM
+
+![Login to BrakeCODE dashboard from NiM](https://github.brakecode.com/image/NiM-devToolsPanel.png)
+
+---
+
+# Node.js Diagnostic Reports
+## Installation as an application dependency for Node.js diagnostic reports usage...
 Install the dependencies and devDependencies and start the server.
 
 ```sh
