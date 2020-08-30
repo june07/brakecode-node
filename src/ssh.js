@@ -4,7 +4,12 @@ const debug = require('debug')('brakecode:ssh.js'),
   { join } = require('path'),
   { homedir } = require('os')
 ;
-const SSH_OPTIONS = '-o "ExitOnForwardFailure=yes" -o "StrictHostKeyChecking=accept-new" -o "ConnectTimeout=5"',
+const SSH_OPTIONS = [
+  `-o "ExitOnForwardFailure=yes"`,
+  `-o "StrictHostKeyChecking=accept-new"`,
+  `-o "ConnectTimeout=5"`,
+  `-o "ServerAliveInterval=20"`
+  ].join(' '),
   ID_RSA = join(homedir(), '.ssh/', 'brakecode.id_rsa'),
   ID_RSA_CERT = join(homedir(), '.ssh/', 'brakecode.id_rsa-cert.pub')
 ;
