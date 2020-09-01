@@ -65,6 +65,7 @@ class SSH {
             self.tunnels[options.pid] = {
               pid: options.pid,
               ssh: sshProcess,
+              inspectSocket: options.inspectSocket,
               socket: nsshServer.fqdn + ":" + options.tunnelPort,
               //nsshServerAddress: nsshServer.address,
               state: 'connected'
@@ -77,34 +78,44 @@ class SSH {
   }
   digTunnel(inspectPort, pid, retry = 0) {
     let self = this;
-    if (self.tunnels[pid] && self.tunnels[pid].state === 'connected') return Promise.resolve(self.tunnels[pid]);
-    else if (self.tunnels[pid] && self.tunnels[pid].state === 'connecting') return Promise.reject(self.tunnels[pid].state);
-    else if (self.tunnels[pid] && self.tunnels[pid].state === 'retrying' && retry === 0) return Promise.reject(self.tunnels[pid].state);
-    return new Promise(resolve => {
-      self.tunnels[pid] = { ['state']: 'connecting' };
-      self.ssh(`ss.sh`)
-        .then(connection => {
-          let ports = connection.stdout.match(/unused\sports:\s.*/) ? connection.stdout.match(/unused\sports:\s.*/)[0].split(':')[1].trim().toString().split(' ') : [];
-          if (ports.length === 0) throw new Error('Ssh server is out of free ports.');
-          let index = Math.floor(ports.length - Math.random() * ports.length);
-          let tunnelPort = parseInt(ports[index]);
-          return self.ssh(' -N -R *:' + tunnelPort + ':localhost:' + inspectPort, { tunnelPort, pid });
-        }).then(tunnelSocket => {
-          resolve(tunnelSocket);
-        }).catch(error => {
-          self.tunnels[pid].state = 'retrying';
-          debug(error.message);
-          if (retry > 3) {
-            self.tunnels[pid].state = 'error';
-            return self.tunnels[pid].state;
-          }
-          let milliseconds = 1000 * (retry + 1) * 10;
-          debug(`Waiting ${milliseconds / 1000} seconds between retry...`);
-          setTimeout(() => {
-            resolve(self.digTunnel(inspectPort, pid, ++retry));
-          }, milliseconds)
-        });
-    });
+    // Reuse a tunnel if it exists for the same node inspect socket
+    let existingTunnel = Object.values(self.tunnels).find(tunnel => tunnel.inspectSocket === `127.0.0.1:${inspectPort}`);
+    if (existingTunnel && existingTunnel.pid !== pid) {
+      let oldPid = existingTunnel.pid;
+      existingTunnel.pid = pid;
+      self.tunnels[pid] = existingTunnel;
+      delete self.tunnels[oldPid];
+      return Promise.resolve(self.tunnels[pid]);
+    } else {
+      if (self.tunnels[pid] && self.tunnels[pid].state === 'connected') return Promise.resolve(self.tunnels[pid]);
+      else if (self.tunnels[pid] && self.tunnels[pid].state === 'connecting') return Promise.reject(self.tunnels[pid].state);
+      else if (self.tunnels[pid] && self.tunnels[pid].state === 'retrying' && retry === 0) return Promise.reject(self.tunnels[pid].state);
+      return new Promise(resolve => {
+        self.tunnels[pid] = { ['state']: 'connecting' };
+        self.ssh(`ss.sh`)
+          .then(connection => {
+            let ports = connection.stdout.match(/unused\sports:\s.*/) ? connection.stdout.match(/unused\sports:\s.*/)[0].split(':')[1].trim().toString().split(' ') : [];
+            if (ports.length === 0) throw new Error('Ssh server is out of free ports.');
+            let index = Math.floor(ports.length - Math.random() * ports.length);
+            let tunnelPort = parseInt(ports[index]);
+            return self.ssh(' -N -R *:' + tunnelPort + ':localhost:' + inspectPort, { tunnelPort, pid, inspectSocket: `127.0.0.1:${inspectPort}` });
+          }).then(tunnelSocket => {
+            resolve(tunnelSocket);
+          }).catch(error => {
+            self.tunnels[pid].state = 'retrying';
+            debug(error.message);
+            if (retry > 3) {
+              self.tunnels[pid].state = 'error';
+              return self.tunnels[pid].state;
+            }
+            let milliseconds = 1000 * (retry + 1) * 10;
+            debug(`Waiting ${milliseconds / 1000} seconds between retry...`);
+            setTimeout(() => {
+              resolve(self.digTunnel(inspectPort, pid, ++retry));
+            }, milliseconds)
+          });
+      });
+    }
   }
   generateKeyPair() {
     let keypair;
