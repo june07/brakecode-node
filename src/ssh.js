@@ -49,7 +49,7 @@ class SSH {
           if (err) return reject(stderr);
         });
         sshProcess.on('close', close => {
-          self.tunnels[options.pid].state = 'closed';
+          if (self.tunnels[options.pid]) self.tunnels[options.pid].state = 'closed';
         });
         sshProcess.stderr.on('data', data => {
           let nsshServerUUID = data.match(/nsshost\s([0-9A-F]{8}-[0-9A-F]{4}-4[0-9A-F]{3}-[89AB][0-9A-F]{3}-[0-9A-F]{12})/i);
