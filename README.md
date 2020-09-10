@@ -3,10 +3,12 @@
 Brakecode is software that runs on your hosts.  It manages telemetry data including reports and makes them available for analysis.  The Brakecode NPM package is open-source.
 
 # Current Features
-  - PaDS Secure (certificate based SSH) Remote Debugging
+  - PADS Secure (certificate based SSH tunnel) Remote Debugging
     * Fully managed SSH tunnels
     * Multiple tunnels per host
     * Multiple hosts per user
+    * Easily share debugging sessions with other developers.
+
   - Node.js Diagnostic Reports
     > Delivers a JSON-formatted diagnostic summary, written to ~~a file~~ **anywhere**.
 
