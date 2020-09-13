@@ -1,7 +1,7 @@
 {
   "name": "brakecode",
-  "version": "0.1.11",
-  "description": "Brakecode is software that runs on your hosts.  It manages telemetry data including reports and makes them available for analysis.  The Brakecode NPM package is open-source.",
+  "version": "0.1.12",
+  "description": "Brakecode is software that runs on your hosts.  It manages Node.js debugging and other V8 Inspector Protocol sessions as well as diagnostic reports.  The Brakecode NPM package is open-source.",
   "main": "brakecode.js",
   "scripts": {
     "test": "exit 0"
