@@ -245,7 +245,7 @@ class Agent {
                         let array = proc.replace(/\s+/g, ' ').split(' ');
                         // array[4] pid, array[1] socket
                         if (parseInt(array[4]) === pid) return resolve(array[1]);
-                        if (i === processes.length - 1) resolve('A corresponding inspect socket was not found for Node.js process ' + pid);
+                        if (i === processes.length - 1) resolve('A corresponding inspect socket was not found for V8 process ' + pid);
                     });
                 } else {
                     (async () => {
@@ -258,11 +258,11 @@ class Agent {
                                 if (ip) {
                                     return resolve(foundListeningSocket);
                                 } else {
-                                    return resolve(new Error('A corresponding inspect socket was not found for Node.js process ' + pid));
+                                    return resolve(new Error('A corresponding inspect socket was not found for V8 process ' + pid));
                                 }
                             }
                         }
-                        resolve(new Error('No listening socket was not found for Node.js process ' + pid));
+                        resolve(new Error('No listening socket was not found for V8 process ' + pid));
                     })();
                 }
             });
@@ -275,7 +275,7 @@ class Agent {
                     let socket = proc.replace(/\s+/g, ' ').split(' ').find(socket => socket.match(/\d.\d.\d.\d:(\d{1,5})/));
                     let port = socket ? socket.split(':')[1] : undefined;
                     if (port !== undefined && port === dockerPort) return resolve(socket);
-                    if (i === processes.length - 1) resolve('Docker container process inspect socket was not found for Node.js process on Docker host socket ' + socket);
+                    if (i === processes.length - 1) resolve('Docker container process inspect socket was not found for V8 process on Docker host socket ' + socket);
                 });
             });
         });
@@ -325,7 +325,7 @@ class Agent {
                 } else {
                     which('netstat')
                     .then(netstat => {
-                        exec(`${netstat} -tlnp | grep node | awk 'BEGIN {FS=" "}{split($7,processInfoArray,"/"); print "listening:"$4" pid:"processInfoArray[1]}'`, (error, stdout, stderr) => {
+                        exec(`${netstat} -tlnp | egrep "node|deno" | awk 'BEGIN {FS=" "}{split($7,processInfoArray,"/"); print "listening:"$4" pid:"processInfoArray[1]}'`, (error, stdout, stderr) => {
                             if (error) {
                                 debug(stderr);
                                 reject(error);
@@ -338,7 +338,7 @@ class Agent {
                     .catch(error => {
                         which('ss')
                         .then(ss => {
-                            exec(`${ss} -tlnp | grep node | awk 'BEGIN {FS=" "}{split($6,processInfoArray,","); split(processInfoArray[2],pid,"="); print "listening:"$4" pid:"pid[2]}'`, (error, stdout, stderr) => {
+                            exec(`${ss} -tlnp | egrep "node|deno" | awk 'BEGIN {FS=" "}{split($6,processInfoArray,","); split(processInfoArray[2],pid,"="); print "listening:"$4" pid:"pid[2]}'`, (error, stdout, stderr) => {
                                 if (error) {
                                     debug(stderr);
                                     reject(error);
@@ -355,12 +355,32 @@ class Agent {
 
         (async () => {
             let plist = await psList({ processName: 'node' }),
+                plistDeno = await psList({ processName: 'deno' }),
                 plistDocker = await psList({ processName: 'docker' });
             let promises = [];
             if (plistDocker.length > 0) await agent.docker_ps();
             plist = await agent.filter(plist);
             plist.forEach(listItem => {
                 if (listItem.name.search(/node(.exe)?\s?/) !== -1 && listItem.cmd.search(/^node/) !== -1) {
+                    promises.push(Agent.getInspectSocket(agent, processNetStats, listItem.pid)
+                        .then(socket => {
+                            Object.assign(listItem, {
+                                nodeInspectFlagSet: (listItem.cmd.search(/--inspect/) === -1) ? false : true,
+                                nodeInspectSocket: (listItem.cmd.search(/--inspect/) === -1) ? undefined : socket,
+                                inspectPort: (socket instanceof Error) ? undefined : parseInt(socket.split(':')[1]),
+                                tunnelSocket: agent.SSH.getSocket(listItem.pid)
+                            });
+                            agent.processList[listItem.pid] ? Object.assign(agent.processList[listItem.pid], listItem) : agent.processList[listItem.pid] = Object.assign({}, listItem);
+                        })
+                        .catch(error => {
+                            console.dir(error);
+                        }));
+                }
+            });
+            if (plistDeno.length > 0) await agent.filter(plistDeno);
+            plistDeno = await agent.filter(plistDeno);
+            plistDeno.forEach(listItem => {
+                if (listItem.name.search(/deno(.exe)?\s?/) !== -1 && listItem.cmd.search(/^deno/) !== -1) {
                     promises.push(Agent.getInspectSocket(agent, processNetStats, listItem.pid)
                         .then(socket => {
                             Object.assign(listItem, {
@@ -410,12 +430,16 @@ class Agent {
             });
             Promise.all(promises)
                 .then(() => {
-                    let totalNodeProcesses = Object.keys(agent.processList).length,
-                        totalNodeProcessesCalledWithInspectFlag = Object.values(agent.processList).filter((p) => { return p.nodeInspectFlagSet }).length,
-                        totalNodeProcessesRunningOnDocker = Object.values(agent.processList).filter((p) => p.dockerContainer).length;
-                    console.log('There were ' + totalNodeProcesses + ` running Node processes detected on this host during this check,
-    ${totalNodeProcessesRunningOnDocker}/${totalNodeProcesses} are running on Docker 🐋,
-    ${totalNodeProcessesCalledWithInspectFlag}/${totalNodeProcesses} were started with '--inspect'.`);
+                    let totalV8Processes = Object.keys(agent.processList).length,
+                        totalNodeProcesses = Object.values(agent.processList).filter(process => process.name.match(/node/)).length,
+                        totalDenoProcesses = Object.values(agent.processList).filter(process => process.name.match(/deno/)).length,
+                        totalV8ProcessesCalledWithInspectFlag = Object.values(agent.processList).filter((p) => { return p.nodeInspectFlagSet }).length,
+                        totalV8ProcessesRunningOnDocker = Object.values(agent.processList).filter((p) => p.dockerContainer).length;
+                    console.log('There were ' + totalV8Processes + ` running V8 processes detected on this host during this check,
+    ${totalV8ProcessesRunningOnDocker}/${totalV8Processes} are running on Docker 🐋,
+    ${totalNodeProcesses} are running Node,
+    ${totalDenoProcesses} are running Deno,
+    ${totalV8ProcessesCalledWithInspectFlag}/${totalV8Processes} were started with '--inspect'.`);
                     agent.updating = false;
                     let formattedMetadata = agent.formatMetadata(agent.processList);
                     //debug(`Formatted metadata: ${JSON.stringify(formattedMetadata)}`);
