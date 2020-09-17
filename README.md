@@ -3,11 +3,12 @@
 Brakecode is software that runs on your hosts.  It manages Node.js debugging and other [V8 Inspector Protocol](https://v8.dev/) sessions as well as diagnostic reports.  The Brakecode NPM package is open-source.
 
 # Current Features
-  - PADS Secure (certificate based SSH tunnel) Remote Debugging
+  - PADS Secure (certificate based SSH tunnel) Remote V8 Protocol Debugging
     * Fully managed SSH tunnels
     * Multiple tunnels per host
     * Multiple hosts per user
     * Easily share debugging sessions with other developers.
+    * Support for [Node.js](https://nodejs.org) and [Deno](https://deno.land/)
 
   - Node.js Diagnostic Reports
     > Delivers a JSON-formatted diagnostic summary, written to ~~a file~~ **anywhere**.
