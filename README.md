@@ -1,6 +1,6 @@
 [![BrakeCODE](https://june07.github.io/image/titleLogoBlack.png)](https://brakecode.com)
 
-Brakecode is software that runs on your hosts.  It manages telemetry data including reports and makes them available for analysis.  The Brakecode NPM package is open-source.
+Brakecode is software that runs on your hosts.  It manages Node.js debugging and other [V8 Inspector Protocol](https://v8.dev/) sessions as well as diagnostic reports.  The Brakecode NPM package is open-source.
 
 # Current Features
   - PADS Secure (certificate based SSH tunnel) Remote Debugging
