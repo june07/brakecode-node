@@ -1,6 +1,6 @@
 {
   "name": "brakecode",
-  "version": "0.2.2",
+  "version": "0.2.3",
   "description": "Brakecode is software that runs on your hosts.  It manages Node.js debugging and other V8 Inspector Protocol sessions as well as diagnostic reports.  The Brakecode NPM package is open-source.",
   "main": "brakecode.js",
   "scripts": {
