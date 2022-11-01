@@ -37,7 +37,7 @@
     "dotenv": "^8.2.0",
     "inquirer": "^7.3.3",
     "js-yaml": "^3.14.0",
-    "socket.io-client": "^2.3.0",
+    "socket.io-client": "^4.5.3",
     "tweetnacl": "^1.0.3",
     "tweetnacl-util": "^0.15.1",
     "uuid": "^8.3.0",
