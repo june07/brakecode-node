@@ -29,10 +29,10 @@ const debug = require('debug')('brakecode:N2PSocket.js'),
 ;
 nacl.util = require('tweetnacl-util');
 const SocketIO = require('socket.io-client'),
-    N2P_URL = (process.env.DEVEL || process.env.NODE_ENV === 'dev') ? 'https://pads-dev.brakecode.com' : 'https://pads.brakecode.com',
+    N2P_URL = (process.env.DEVEL || process.env.NODE_ENV !== 'production') ? 'https://pads-dev.brakecode.com' : 'https://pads.brakecode.com',
     SSH = require('./src/ssh.js'),
-    NAMESPACE_APIKEY_NAME = process.env.NODE_ENV === 'dev' ? 'namespace-apikey-dev.brakecode.com' : 'namespace-apikey.brakecode.com',
-    PUBLIC_KEY_NAME = process.env.NODE_ENV === 'dev' ? 'publickey-dev.brakecode.com' : 'publickey.brakecode.com'
+    NAMESPACE_APIKEY_NAME = process.env.NODE_ENV !== 'production' ? 'namespace-apikey-dev.brakecode.com' : 'namespace-apikey.brakecode.com',
+    PUBLIC_KEY_NAME = process.env.NODE_ENV !== 'production' ? 'publickey-dev.brakecode.com' : 'publickey.brakecode.com'
 ; 
 
 class N2PSocket {
@@ -43,7 +43,8 @@ class N2PSocket {
         self.io = SocketIO(N2P_URL + '/' + self.apikeyHashedUUID, {
             query: { apikey: self.encryptMessage(process.env.BRAKECODE_API_KEY) },
             transports: ['websocket'],
-            path: '/agent'
+            path: '/agent',
+            rejectUnauthorized: false
         })
         .on('inspect', args => {
             if (args.uuid !== self.uuid) return;
@@ -57,7 +58,7 @@ class N2PSocket {
         .on('connect_error', error => {
             console.dir(error.message);
         });
-        self.ioBroadcast = SocketIO(N2P_URL, { transports: ['websocket'], path: '/agent', query: { apikey: process.env.BRAKECODE_API_KEY } })
+        self.ioBroadcast = SocketIO(N2P_URL, { transports: ['websocket'], rejectUnauthorized: false, path: '/agent', query: { apikey: process.env.BRAKECODE_API_KEY } })
         .on('nssh_map', map => {
             Agent.nsshServerMap = map;
         })

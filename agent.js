@@ -31,7 +31,7 @@ const debug = require('debug')('brakecode'),
     { join } = require('path'),
     { EOL, homedir, hostname, platform, release, uptime } = require('os'),
     { v5: uuid } = require('uuid'),
-    psList = process.env.NODE_ENV === 'dev' && fs.existsSync('../ps-list') ? require('../ps-list') : require('@667/ps-list'),
+    psList = process.env.NODE_ENV !== 'production' && fs.existsSync('../ps-list') ? require('../ps-list') : require('@667/ps-list'),
     inquirer = require('inquirer'),
     http = require('http'),
     dns = require('dns').promises,
@@ -41,17 +41,17 @@ const debug = require('debug')('brakecode'),
 const BRAKECODE_DIR = join(homedir(), '.brakecode'),
     ENV_PATH = join(BRAKECODE_DIR, '.env'),
     CONFIG_PATH = join(BRAKECODE_DIR, 'config.yaml'),
-    NAMESPACE_APIKEY_NAME = process.env.NODE_ENV === 'dev' ? 'namespace-apikey-dev.brakecode.com' : 'namespace-apikey.brakecode.com'
+    NAMESPACE_APIKEY_NAME = process.env.NODE_ENV !== 'production' ? 'namespace-apikey-dev.brakecode.com' : 'namespace-apikey.brakecode.com'
 ;
-const env = require('dotenv').config({path: ENV_PATH}),
-    N2PSocket = require('./N2PSocket.js'),
+require('dotenv').config({path: ENV_PATH});
+const N2PSocket = require('./N2PSocket.js'),
     SSHKeyManager = require('./SSHKeyManager.js'),
     Watcher = require('./Watcher.js'),
     ssh = require('./src/ssh.js'),
     FILTER_DEPTH = 2 // set to match the number of precoded applications to filter, ie vscode and nodemon
 ;
 
-let lookups = process.env.NODE_ENV === 'dev' ?
+let lookups = process.env.NODE_ENV !== 'production' ?
     [ NAMESPACE_APIKEY_NAME, 'publickey-dev.brakecode.com' ] :
     [ NAMESPACE_APIKEY_NAME, 'publickey.brakecode.com' ];
 
@@ -243,7 +243,7 @@ class Agent {
         });
         return Promise.all(promises)
         .then(filtered => {
-            filtered = filtered.flat(FILTER_DEPTH).map(filteredProcess => {
+            filtered.flat(FILTER_DEPTH).map(filteredProcess => {
                 let index = plist.findIndex(p => p.pid === filteredProcess.pid);
                 plist.splice(index, 1);
             });
@@ -319,7 +319,7 @@ class Agent {
         return new Promise(resolve => {
             let port = parseInt(socket.split(':')[1]);
             let client = http.get(`http://${socket}/json`, res => {
-                res.on('data', data => {
+                res.on('data', () => {
                     //debug(`${data}`);
                     client.end();
                 });
@@ -360,7 +360,7 @@ class Agent {
                             resolve(output);
                         });
                     })
-                    .catch(error => {
+                    .catch(() => {
                         which('ss')
                         .then(ss => {
                             exec(`${ss} -tlnp | egrep "node|deno" | awk 'BEGIN {FS=" "}{split($6,processInfoArray,","); split(processInfoArray[2],pid,"="); print "listening:"$4" pid:"pid[2]}'`, (error, stdout, stderr) => {
@@ -382,26 +382,29 @@ class Agent {
             let plist = await psList({ processName: 'node' }),
                 plistDeno = await psList({ processName: 'deno' }),
                 plistDocker = await psList({ processName: 'docker' });
+
             let promises = [];
             if (plistDocker.length > 0) await agent.docker_ps();
-            plist = await agent.filter(plist);
-            plist.forEach(listItem => {
-                if (listItem.name.search(/node(.exe)?\s?/) !== -1 && listItem.cmd.search(/^node/) !== -1) {
-                    promises.push(Agent.getInspectSocket(agent, processNetStats, listItem.pid)
-                        .then(socket => {
-                            Object.assign(listItem, {
-                                nodeInspectFlagSet: (listItem.cmd.search(/--inspect/) === -1) ? false : true,
-                                nodeInspectSocket: (listItem.cmd.search(/--inspect/) === -1) ? undefined : socket,
-                                inspectPort: (socket instanceof Error) ? undefined : parseInt(socket.split(':')[1]),
-                                tunnelSocket: agent.SSH.getSocket(listItem.pid)
-                            });
-                            agent.processList[listItem.pid] ? Object.assign(agent.processList[listItem.pid], listItem) : agent.processList[listItem.pid] = Object.assign({}, listItem);
-                        })
-                        .catch(error => {
-                            console.dir(error);
-                        }));
-                }
-            });
+            if (plist) {
+                plist = await agent.filter(plist);
+                plist.forEach(listItem => {
+                    if (isNodeJs(listItem)) {
+                        promises.push(Agent.getInspectSocket(agent, processNetStats, listItem.pid)
+                            .then(socket => {
+                                Object.assign(listItem, {
+                                    nodeInspectFlagSet: (listItem.cmd.search(/--inspect/) === -1) ? false : true,
+                                    nodeInspectSocket: (listItem.cmd.search(/--inspect/) === -1) ? undefined : socket,
+                                    inspectPort: (socket instanceof Error) ? undefined : parseInt(socket.split(':')[1]),
+                                    tunnelSocket: agent.SSH.getSocket(listItem.pid)
+                                });
+                                agent.processList[listItem.pid] ? Object.assign(agent.processList[listItem.pid], listItem) : agent.processList[listItem.pid] = Object.assign({}, listItem);
+                            })
+                            .catch(error => {
+                                console.dir(error);
+                            }));
+                    }
+                });
+            }
             if (plistDeno.length > 0) await agent.filter(plistDeno);
             plistDeno = await agent.filter(plistDeno);
             plistDeno.forEach(listItem => {
@@ -462,8 +465,8 @@ class Agent {
                         totalV8ProcessesRunningOnDocker = Object.values(agent.processList).filter((p) => p.dockerContainer).length;
                     console.log('There were ' + totalV8Processes + ` running V8 processes detected on this host during this check,
     ${totalV8ProcessesRunningOnDocker}/${totalV8Processes} are running on Docker 🐋,
-    ${totalNodeProcesses} are running Node,
-    ${totalDenoProcesses} are running Deno,
+    ${totalNodeProcesses}/${totalV8Processes} are running Node,
+    ${totalDenoProcesses}/${totalV8Processes} are running Deno,
     ${totalV8ProcessesCalledWithInspectFlag}/${totalV8Processes} were started with '--inspect'.`);
                     agent.updating = false;
                     let formattedMetadata = agent.formatMetadata(agent.processList);
@@ -472,6 +475,12 @@ class Agent {
                 });
         })();
     }
+}
+function isNodeJs(process) {
+    const threshold = 2;
+    const matches = ['name', 'cmd', 'caption', 'description'].filter((key) => process[key].search(/node(.exe)?\s?/) === -1 ? false : true);
+
+    return matches.length > threshold;
 }
 function isInspectorProtocol(socket) {
     return new Promise(resolve => {
@@ -583,5 +592,5 @@ checkENV()
 
     agent.start();
 
-    if (process.env.NODE_ENV === 'dev') global.brakecode = { agent }
+    if (process.env.NODE_ENV !== 'production') global.brakecode = { agent }
 });

@@ -23,27 +23,26 @@
 */
 
 const debug = require('debug')('brakecode:ssh.js'),
-  dns = require('dns'),
   { exec } = require('child_process'),
   { join } = require('path'),
   { homedir } = require('os')
-;
+  ;
 const SSH_OPTIONS = [
   `-o "ExitOnForwardFailure=yes"`,
   `-o "StrictHostKeyChecking=accept-new"`,
   `-o "ConnectTimeout=5"`,
   `-o "ServerAliveInterval=20"`
-  ].join(' '),
+].join(' '),
   ID_RSA = join(homedir(), '.ssh/', 'brakecode.id_rsa'),
   ID_RSA_CERT = join(homedir(), '.ssh/', 'brakecode.id_rsa-cert.pub')
-;
+  ;
 
 class SSH {
   constructor(Agent) {
     this.Agent = Agent;
     this.BRAKECODE_API_KEY = process.env.BRAKECODE_API_KEY;
-    this.NSSH_SERVER = process.env.NSSH_SERVER ? process.env.NSSH_SERVER : process.env.NODE_ENV === 'dev' ? 'nssh-dev.brakecode.com' : 'nssh.brakecode.com';
-    this.NSSH_SERVER_PORT = process.env.NSSH_SERVER_PORT ? process.env.NSSH_SERVER_PORT : process.env.NODE_ENV === 'dev' ? 22666 : 22667;
+    this.NSSH_SERVER = process.env.NSSH_SERVER || 'nssh.brakecode.com';
+    this.NSSH_SERVER_PORT = process.env.NSSH_SERVER_PORT || 22667;
     this.NSSH_SERVER_TIMEOUT = process.env.NSSH_SERVER_TIMEOUT || 30000;
     this.TUNNEL_RECORDS_REMOVAL_INTERVAL = process.env.TUNNEL_RECORDS_REMOVAL_INTERVAL || 600;
     this.tunnels = {};
@@ -62,17 +61,17 @@ class SSH {
     return new Promise((resolve, reject) => {
       if (CMD.startsWith('ss.sh')) {
         exec('ssh -p ' + self.NSSH_SERVER_PORT + ' "' + self.Agent.apikeyHashedUUID + '"@' + self.NSSH_SERVER + ' -i ' + ID_RSA + ' -i ' + ID_RSA_CERT + ' ' + SSH_OPTIONS + ' -T', { maxBuffer: 1024 * 500 }, (err, stdout, stderr) => {
+          debug(err, stdout, stderr);
           if (stdout.includes('unused ports:')) return resolve({ err, stdout, stderr });
           else if (err) return reject(err);
         });
       } else {
         let timeoutId;
-        let promises = [ new Promise(resolve => { timeoutId = setTimeout(resolve, self.NSSH_SERVER_TIMEOUT, new Error('timed out')) }) ];
-        let nsshServerPromise;
+        [new Promise(resolve => { timeoutId = setTimeout(resolve, self.NSSH_SERVER_TIMEOUT, new Error('timed out')) })];
         let sshProcess = exec('ssh -v -4 -p ' + self.NSSH_SERVER_PORT + ' "' + self.Agent.apikeyHashedUUID + '"@' + self.NSSH_SERVER + ' -i ' + ID_RSA + ' -i ' + ID_RSA_CERT + ' ' + SSH_OPTIONS + ' ' + CMD, { maxBuffer: 1024 * 500 }, (err, stdout, stderr) => {
           if (err) return reject(stderr);
         });
-        sshProcess.on('close', close => {
+        sshProcess.on('close', () => {
           if (self.tunnels[options.pid]) self.tunnels[options.pid].state = 'closed';
         });
         sshProcess.stderr.on('data', data => {
