@@ -55,7 +55,7 @@ class N2PSocket {
             const connection = Object.values(self.Agent.metadata.connections).filter(c => c.tunnelSocket?.port).find(c => c.tunnelSocket.port === data.port);
             if (!connection?.pid) return;
             if (self.Agent.metadata?.connections[connection.pid]?.tunnelSocket) {
-                self.Agent.metadata.tunnelSockets = self.Agent.metadata?.tunnelSockets ? { [connection.pid]: data.cid, ...self.Agent.metadata.tunnelSockets } : { [connection.pid]: data.cid }
+                self.Agent.metadata.tunnelSockets = self.Agent.metadata?.tunnelSockets ? { [connection.pid]: data, ...self.Agent.metadata.tunnelSockets } : { [connection.pid]: data }
             }
         })
         .on('connect_error', error => {
