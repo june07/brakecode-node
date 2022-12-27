@@ -50,11 +50,10 @@ const netstatCommand =
 const BRAKECODE_DIR = join(homedir(), '.brakecode'),
     ENV_PATH = join(BRAKECODE_DIR, '.env'),
     CONFIG_PATH = join(BRAKECODE_DIR, 'config.yaml'),
-    NAMESPACE_APIKEY_NAME =
-        NODE_ENV !== 'production'
-            ? 'namespace-apikey-dev.brakecode.com'
-            : 'namespace-apikey.brakecode.com',
-    N2P_HOST = NODE_ENV !== 'production' ? 'pads-dev.brakecode.com' : 'pads.brakecode.com';
+    NAMESPACE_APIKEY_NAME = NODE_ENV?.match(/dev/i)
+        ? 'namespace-apikey-dev.brakecode.com'
+        : 'namespace-apikey.brakecode.com',
+    N2P_HOST = NODE_ENV?.match(/dev/i) ? 'pads-dev.brakecode.com' : 'pads.brakecode.com';
 require('dotenv').config({ path: ENV_PATH });
 const N2PSocket = require('./N2PSocket.js'),
     SSHKeyManager = require('./SSHKeyManager.js'),
@@ -62,7 +61,7 @@ const N2PSocket = require('./N2PSocket.js'),
     ssh = require('./src/ssh.js'),
     FILTER_DEPTH = 2; // set to match the number of precoded applications to filter, ie vscode and nodemon
 let lookups =
-    NODE_ENV !== 'production'
+    NODE_ENV?.match(/dev/i)
         ? [NAMESPACE_APIKEY_NAME, 'publickey-dev.brakecode.com']
         : [NAMESPACE_APIKEY_NAME, 'publickey.brakecode.com'];
 
@@ -553,7 +552,7 @@ class Agent {
                 totalV8ProcessesRunningOnDocker = Object.values(
                     agent.processList
                 ).filter(p => p.dockerContainer).length;
-            if (NODE_ENV === 'production' || QUIET) console.clear();
+            if (!NODE_ENV?.match(/dev/i) || QUIET) console.clear();
             console.log(
                 'There were ' +
                 totalV8Processes +
@@ -746,5 +745,5 @@ checkENV()
 
         module.exports = agent;
 
-        if (NODE_ENV !== 'production') global.brakecode = { agent };
+        if (NODE_ENV?.match(/dev/i)) global.brakecode = { agent };
     });

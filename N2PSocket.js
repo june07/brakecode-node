@@ -21,15 +21,15 @@
  *    OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  *    SOFTWARE.
 */
-
+const { NODE_ENV } = process.env;
 const debug = require('debug')('brakecode:N2PSocket.js'),
     nacl = require('tweetnacl'),
     crypto = require('crypto')
 ;
 nacl.util = require('tweetnacl-util');
 const SocketIO = require('socket.io-client'),
-    N2P_URL = process.env.NODE_ENV === 'dev' ? 'https://pads-dev.brakecode.com' : 'https://pads.brakecode.com',
-    PUBLIC_KEY_NAME = process.env.NODE_ENV === 'dev' ? 'publickey-dev.brakecode.com' : 'publickey.brakecode.com'
+    N2P_URL = NODE_ENV?.match(/dev/i) ? 'https://pads-dev.brakecode.com' : 'https://pads.brakecode.com',
+    PUBLIC_KEY_NAME = NODE_ENV?.match(/dev/i) ? 'publickey-dev.brakecode.com' : 'publickey.brakecode.com'
 ; 
 
 class N2PSocket {
