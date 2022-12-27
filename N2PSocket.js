@@ -28,8 +28,8 @@ const debug = require('debug')('brakecode:N2PSocket.js'),
 ;
 nacl.util = require('tweetnacl-util');
 const SocketIO = require('socket.io-client'),
-    N2P_URL = process.env.NODE_ENV !== 'production' ? 'https://pads-dev.brakecode.com' : 'https://pads.brakecode.com',
-    PUBLIC_KEY_NAME = process.env.NODE_ENV !== 'production' ? 'publickey-dev.brakecode.com' : 'publickey.brakecode.com'
+    N2P_URL = process.env.NODE_ENV === 'dev' ? 'https://pads-dev.brakecode.com' : 'https://pads.brakecode.com',
+    PUBLIC_KEY_NAME = process.env.NODE_ENV === 'dev' ? 'publickey-dev.brakecode.com' : 'publickey.brakecode.com'
 ; 
 
 class N2PSocket {
