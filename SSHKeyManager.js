@@ -35,65 +35,49 @@ const debug = require('debug')('brakecode:SSHKeyManager.js'),
 
 class SSHKeyManager {
     constructor(Agent) {
-        let self = this;
-        self.Agent = Agent;
+        this.Agent = Agent;
 
-        new Promise(resolve => {
+        (async () => {
             // Check for the keys
             if (ID_RSA !== undefined) {
                 // Default key is set.
-                self.readPubKeyFile(ID_RSA + '.pub')
-                .then((key) => resolve(self.key = key));
+                this.Agent.key = await this.readPubKeyFile(ID_RSA + '.pub');
             } else if (process.env.ID_RSA !== undefined) {
                 // User set key in config file.
-                self.readPubKeyFile(process.env.ID_RSA + '.pub')
-                .then((key) => resolve(self.key = key));
+                this.Agent.key = await this.readPubKeyFile(process.env.ID_RSA + '.pub');
             } else {
                 // Generate if not found.
-                self.generateKeyFile()
-                .then((key) => resolve(self.key = key));
+                this.Agent.key = await this.generateKeyFile();
             }
-        })
-        .then(() => {
-            self.generateKeyCertificate();
-        })
+            this.generateKeyCertificate();
+        })();
     }
-    readPubKeyFile(keyfile) {
-        let self = this;
-        return new Promise((resolve) => {
-            fs.readFile(keyfile, { encoding: 'utf8'}, (err, data) => {
-                if (err) {
-                    self.generateKeyFile()
-                    .then((keydata) => {
-                        resolve(keydata);
-                    });
-                }
-               resolve(data);
-            });
-        });
+    async readPubKeyFile(keyfile) {
+        try {
+            return await fs.readFileSync(keyfile, { encoding: 'utf8' });
+        } catch (error) {
+            return await this.generateKeyFile();
+        }
     }
-    generateKeyFile() {
-        return new Promise((resolve, reject) => {
-            let sshkeygen = exec('ssh-keygen -t rsa-sha2-512 -b 4096 -C "' + ID_RSA_COMMENT + '" -N "" -f ' + ID_RSA, (error, stdout, stderr) => {
-                if (error) reject(error);
-                return stdout;
-            });
-        })
-        .then((stdout) => {
-            return self.readKeyFile(ID_RSA);
-        })
-        .then((keydata) => {
-            resolve(keydata);
-        });
+    async generateKeyFile() {
+        const { stdout, stderr } = exec('ssh-keygen -t rsa-sha2-512 -b 4096 -C "' + ID_RSA_COMMENT + '" -N "" -f ' + ID_RSA);
+        if (stderr) {
+            console.error(stderr);
+        }
+        debug(stdout);
+        const keydata = await this.readKeyFile(ID_RSA);
+        return keydata;
     }
     generateKeyCertificate() {
-        debug('Generating Key Certificate...');
-        let self = this;
-        if (self.Agent.controlSocket.io) self.Agent.controlSocket.io.emit('generateSSH_KeyCert', { key: self.key, principle: self.Agent.apikeyHashedUUID })
-        .on('SSH_KeyCert', publicKey => {
-            fs.writeFileSync(ID_RSA_CERT, publicKey, { mode: '0600' });
-            fs.chmodSync(ID_RSA_CERT, '0600'); // The mode option above is not working?!
-        });
+        console.log('Generating Key Certificate...');
+        if (this.Agent.controlSocket.io) {
+            this.Agent.controlSocket.io.emit('generateSSH_KeyCert', { key: this.Agent.key, principle: this.Agent.config.apikeyHashedUUID.replaceAll('-', '_') })
+                .on('SSH_KeyCert', publicKey => {
+                    console.log(`Saving Key Certificate to ${ID_RSA_CERT}...`);
+                    fs.writeFileSync(ID_RSA_CERT, publicKey, { mode: '0600' });
+                    fs.chmodSync(ID_RSA_CERT, '0600'); // The mode option above is not working?!
+                });
+        }
     }
 }
 

@@ -1,19 +1,20 @@
 const debug = require('debug')('brakecode:watcher');
 
 class Watcher {
-    constructor(Agent, watchee, options) {
-        let self = this;
-        self.Agent = Agent;
-        self.watchee = watchee;
-        self.options = {
-            interval: 1000
+    constructor(Agent, watched, options) {
+        this.Agent = Agent;
+        this.watched = watched;
+        this.options = {
+            interval: 1000,
+            ...options
         }
-        Object.assign(self.options, options);
     }
     start() {
-        let self = this;
-        self.intervalId = setInterval(() => { self.watchee(self.Agent) }, self.options.interval);
-        debug('Started ' + self.watchee.name);
+        const watcher = this;
+        watcher.intervalId = setInterval(() => {
+            watcher.watched(watcher.Agent)
+        }, watcher.options.interval)
+        debug('Started ' + watcher.watched.name);
     }
     stop() {
         clearInterval(this.intervalId);

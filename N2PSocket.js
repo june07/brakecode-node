@@ -1,7 +1,7 @@
 /**
  * MIT License
  *
- *    Copyright (c) 2020 June07
+ *    Copyright (c) 2020-2022 June07
  *
  *    Permission is hereby granted, free of charge, to any person obtaining a copy
  *    of this software and associated documentation files (the "Software"), to deal
@@ -23,15 +23,12 @@
 */
 
 const debug = require('debug')('brakecode:N2PSocket.js'),
-    { v5: uuid } = require('uuid'),
     nacl = require('tweetnacl'),
     crypto = require('crypto')
 ;
 nacl.util = require('tweetnacl-util');
 const SocketIO = require('socket.io-client'),
-    N2P_URL = (process.env.DEVEL || process.env.NODE_ENV !== 'production') ? 'https://pads-dev.brakecode.com' : 'https://pads.brakecode.com',
-    SSH = require('./src/ssh.js'),
-    NAMESPACE_APIKEY_NAME = process.env.NODE_ENV !== 'production' ? 'namespace-apikey-dev.brakecode.com' : 'namespace-apikey.brakecode.com',
+    N2P_URL = process.env.NODE_ENV !== 'production' ? 'https://pads-dev.brakecode.com' : 'https://pads.brakecode.com',
     PUBLIC_KEY_NAME = process.env.NODE_ENV !== 'production' ? 'publickey-dev.brakecode.com' : 'publickey.brakecode.com'
 ; 
 
@@ -39,8 +36,7 @@ class N2PSocket {
     constructor(Agent) {
         let self = this;
         self.Agent = Agent;        
-        self.apikeyHashedUUID = uuid(process.env.BRAKECODE_API_KEY, self.Agent.lookups[NAMESPACE_APIKEY_NAME]);
-        self.io = SocketIO(N2P_URL + '/' + self.apikeyHashedUUID, {
+        self.io = SocketIO(N2P_URL + '/' + self.Agent.config.apikeyHashedUUID, {
             query: { apikey: self.encryptMessage(process.env.BRAKECODE_API_KEY) },
             transports: ['websocket'],
             path: '/agent',
@@ -53,12 +49,24 @@ class N2PSocket {
             self.Agent.inspectNode(args.nodePID, self.io);
         })
         .on('metadata', data => {
-            //debug(data);
+            debug(data);
+        })
+        .on('tunnel_socket', data => {
+            const connection = Object.values(self.Agent.metadata.connections).filter(c => c.tunnelSocket?.port).find(c => c.tunnelSocket.port === data.port);
+            if (!connection?.pid) return;
+            if (self.Agent.metadata?.connections[connection.pid]?.tunnelSocket) {
+                self.Agent.metadata.tunnelSockets = self.Agent.metadata?.tunnelSockets ? { [connection.pid]: data.cid, ...self.Agent.metadata.tunnelSockets } : { [connection.pid]: data.cid }
+            }
         })
         .on('connect_error', error => {
             console.dir(error.message);
         });
-        self.ioBroadcast = SocketIO(N2P_URL, { transports: ['websocket'], rejectUnauthorized: false, path: '/agent', query: { apikey: process.env.BRAKECODE_API_KEY } })
+        self.ioBroadcast = SocketIO(N2P_URL, {
+            transports: ['websocket'],
+            rejectUnauthorized: false,
+            path: '/agent',
+            query: { apikey: process.env.BRAKECODE_API_KEY }
+        })
         .on('nssh_map', map => {
             Agent.nsshServerMap = map;
         })
