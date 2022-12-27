@@ -289,17 +289,19 @@ class Agent {
         }, 100);
     }
     static getInspectSocket(Agent, netstats, pid) {
-        if (platform() === 'win32') {
-            netstats.forEach((process, i, netstats) => {
-                let array = process.replace(/\s+/g, ' ').split(' ');
-                // array[4] pid, array[1] socket
-                if (parseInt(array[4]) === pid) return array[1];
-                if (i === netstats.length - 1) {
-                    return new Error(`A corresponding inspect socket was not found for V8 process ${pid}`);
-                }
-            });
-        } else {
-            return new Promise((resolve) => {
+        return new Promise((resolve) => {
+            if (platform() === 'win32') {
+                resolve(
+                    netstats.find((process, i, netstats) => {
+                        let array = process.replace(/\s+/g, ' ').split(' ');
+                        // array[4] pid, array[1] socket
+                        if (parseInt(array[4]) === pid) return array[1];
+                        if (i === netstats.length - 1) {
+                            return new Error(`A corresponding inspect socket was not found for V8 process ${pid}`);
+                        }
+                    })
+                )
+            } else {
                 Promise.all(netstats.map((netstat) => {
                     let process = netstat;
                     let foundPId = process.match(/\spid:(.*)/)[1],
@@ -311,8 +313,8 @@ class Agent {
                     }
                 }))
                 .then(() => resolve(new Error(`A corresponding inspect socket was not found for V8 process ${pid}`)));
-            });
-        }
+            }
+        });
     }
     static getTunnelSocket(plist, inspectLocalPort) {
         /* Get's tunnel socket from localhost process list */
