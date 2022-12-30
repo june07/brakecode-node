@@ -552,7 +552,7 @@ class Agent {
                 totalV8ProcessesRunningOnDocker = Object.values(
                     agent.processList
                 ).filter(p => p.dockerContainer).length;
-            if (!NODE_ENV?.match(/dev/i) || QUIET) console.clear();
+            if ((!NODE_ENV?.match(/dev/i && (QUIET !== undefined && !QUIET))) || QUIET) console.clear();
             console.log(
                 'There were ' +
                 totalV8Processes +
@@ -567,7 +567,7 @@ class Agent {
                 .filter(kv => kv[1].tunnelSocket)
                 .map(kv => {
                     const pid = kv[0];
-                    const cid = agent?.metadata?.tunnelSockets && agent?.metadata?.tunnelSockets[pid];
+                    const cid = agent?.metadata?.tunnelSockets && agent?.metadata?.tunnelSockets[pid]?.cid;
                     const did = agent.infos[pid]?.id; // Debugger ID
                     const localDevtoolsURL = agent.infos[pid]?.devtoolsFrontendUrl;
                     const params = agent.infos[pid]?.type === 'deno' || agent.infos[pid]?.webSocketDebuggerUrl.match(/wss?:\/\/[^:]*:[0-9]+(\/ws\/)/) ? '?runtime=deno' : '?'
