@@ -1,0 +1,10 @@
+{
+  "version": "v1",
+  "packages": {
+    "@667/ps-list": {
+      "signature": "f727effac4db67dfda62f8a38fbbc60a",
+      "file": true,
+      "replaced": "^1.1.0-readme-bump"
+    }
+  }
+}

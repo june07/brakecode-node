@@ -299,19 +299,19 @@ class Agent {
                             return new Error(`A corresponding inspect socket was not found for V8 process ${pid}`);
                         }
                     })
-                )
+                );
             } else {
                 Promise.all(netstats.map((netstat) => {
                     let process = netstat;
                     let foundPId = process.match(/\spid:(.*)/)[1],
                         foundListeningSocket = process.match(/^listening:(.*)\s/)[1];
-                    
+
                     if (parseInt(foundPId) === pid && foundListeningSocket) {
                         return isInspectorProtocol(Agent, pid, foundListeningSocket)
                             .then((ip) => ip && resolve(foundListeningSocket));
                     }
                 }))
-                .then(() => resolve(new Error(`A corresponding inspect socket was not found for V8 process ${pid}`)));
+                    .then(() => resolve(new Error(`A corresponding inspect socket was not found for V8 process ${pid}`)));
             }
         });
     }
@@ -483,7 +483,7 @@ class Agent {
                 );
             }
         });
-        if (plistDocker.length > 0)
+        if (plistDocker.length > 0) {
             agent.dockerProcesses.map((dockerProcess, i, dockerProcesses) => {
                 const match = dockerProcess[3].match(/\d.\d.\d.\d:(\d{1,5})/);
                 const nodeInspectSocket = match.length ? match[0] : undefined,
@@ -497,11 +497,8 @@ class Agent {
                         if (error) return;
                         Object.assign(listItem, { dockerContainer: true });
                         let processListItem = plistDocker.find(p => {
-                            if (
-                                p.name.search(/^docker(?!-)(.exe)?\s?/) !== -1
-                            ) {
-                                dockerProcesses[i][1] =
-                                    p.cmd.match(/--name\s+([^-\s]+)/)?.[1];
+                            if (p.name.search(/docker/) !== -1) {
+                                dockerProcesses[i][1] = p.cmd;
                                 return p;
                             }
                         });
@@ -527,15 +524,14 @@ class Agent {
                         });
                         /* Getting this far doesn't neccessarily mean that we've found a Node.js container.  Must inspect the container to find out for sure and on Windows that's a bit tough because the PPID
                          * of the container isn't on Windows but on the HyperV host Docker creates. */
-                        Object.assign(agent.processList, {
-                            [processListItem.pid]: Object.assign(
-                                processListItem,
-                                listItem
-                            ),
-                        });
+                        agent.processList[processListItem.pid] = {
+                            ...processListItem,
+                            ...listItem
+                        }
                     })
                 );
             });
+        }
         await Promise.all(promises).then(() => {
             let totalV8Processes = Object.keys(agent.processList).length,
                 totalNodeProcesses = Object.values(agent.processList).filter(
@@ -552,7 +548,7 @@ class Agent {
                 totalV8ProcessesRunningOnDocker = Object.values(
                     agent.processList
                 ).filter(p => p.dockerContainer).length;
-            if ((!NODE_ENV?.match(/dev/i && (QUIET !== undefined && !QUIET))) || QUIET) console.clear();
+            //if ((!NODE_ENV?.match(/dev/i && (QUIET !== undefined && !QUIET))) || QUIET) console.clear();
             console.log(
                 'There were ' +
                 totalV8Processes +
@@ -570,7 +566,7 @@ class Agent {
                     const cid = agent?.metadata?.tunnelSockets && agent?.metadata?.tunnelSockets[pid]?.cid;
                     const did = agent.infos[pid]?.id; // Debugger ID
                     const localDevtoolsURL = agent.infos[pid]?.devtoolsFrontendUrl;
-                    const params = agent.infos[pid]?.type === 'deno' || agent.infos[pid]?.webSocketDebuggerUrl.match(/wss?:\/\/[^:]*:[0-9]+(\/ws\/)/) ? '?runtime=deno' : '?'
+                    const params = agent.infos[pid]?.type === 'deno' || agent.infos[pid]?.webSocketDebuggerUrl.match(/wss?:\/\/[^:]*:[0-9]+(\/ws\/)/) ? '?runtime=deno' : '?';
 
                     if (cid && did) {
                         const remoteDebuggerURL = localDevtoolsURL.replace(/wss?=(.*)/, `wss=${N2P_HOST}/ws/${cid}/${did}${params}`);
