@@ -204,7 +204,12 @@ class Agent {
                     this.dockerProcesses = stdout
                         .split('\n')
                         .filter(line => line)
-                        .map(line => line.split('\t'));
+                        .map(line => {
+                            const re = new RegExp('(0.0.0.0:[0-9]*)->9229');
+                            let arr = line.split('\t');
+                            arr[3] = arr[3].split(',').find(ports => ports.match(re))?.match(re)?.[1];
+                            return arr;
+                        });
                     resolve();
                 }
             );
@@ -485,8 +490,7 @@ class Agent {
         });
         if (plistDocker.length > 0) {
             agent.dockerProcesses.map((dockerProcess, i, dockerProcesses) => {
-                const match = dockerProcess[3].match(/\d.\d.\d.\d:(\d{1,5})/);
-                const nodeInspectSocket = match.length ? match[0] : undefined,
+                const nodeInspectSocket = dockerProcess[3],
                     listItem = {};
 
                 promises.push(
@@ -497,12 +501,12 @@ class Agent {
                         if (error) return;
                         Object.assign(listItem, { dockerContainer: true });
                         let processListItem = plistDocker.find(p => {
-                            if (p.name.search(/docker/) !== -1) {
+                            if (p.cmd.match(new RegExp(`-host-port\\s${dockerProcesses[i][3].split(':')[1]}`))) {
                                 dockerProcesses[i][1] = p.cmd;
                                 return p;
                             }
                         });
-                        if (processListItem !== -1) {
+                        if (processListItem) {
                             dockerProcesses[i].push(processListItem.pid);
                         }
                         Object.assign(listItem, {
@@ -519,7 +523,7 @@ class Agent {
                             inspectPort:
                                 error instanceof Error ? undefined : port,
                             tunnelSocket: agent.SSH.getSocket(
-                                processListItem.pid
+                                processListItem?.pid
                             ),
                         });
                         /* Getting this far doesn't neccessarily mean that we've found a Node.js container.  Must inspect the container to find out for sure and on Windows that's a bit tough because the PPID
