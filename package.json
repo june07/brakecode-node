@@ -32,7 +32,7 @@
   },
   "homepage": "https://brakecode.com",
   "dependencies": {
-    "@667/ps-list": "file:.yalc/@667/ps-list",
+    "@667/ps-list": "^1.1.3",
     "dotenv": "^16.0.3",
     "inquirer": "^9.1.4",
     "js-yaml": "^4.1.0",
