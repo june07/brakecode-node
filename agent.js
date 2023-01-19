@@ -3,7 +3,7 @@
 /**
  * MIT License
  *
- *    Copyright (c) 2020-2022 June07
+ *    Copyright (c) 2020-2023 June07
  *
  *    Permission is hereby granted, free of charge, to any person obtaining a copy
  *    of this software and associated documentation files (the "Software"), to deal
@@ -570,7 +570,7 @@ class Agent {
                     const cid = agent?.metadata?.tunnelSockets && agent?.metadata?.tunnelSockets[pid]?.cid;
                     const did = agent.infos[pid]?.id; // Debugger ID
                     const localDevtoolsURL = agent.infos[pid]?.devtoolsFrontendUrl;
-                    const params = agent.infos[pid]?.type === 'deno' || agent.infos[pid]?.webSocketDebuggerUrl.match(/wss?:\/\/[^:]*:[0-9]+(\/ws\/)/) ? '?runtime=deno' : '?';
+                    const params = agent.infos[pid]?.type === 'deno' || agent.infos[pid]?.webSocketDebuggerUrl.match(/wss?:\/\/[^:]*:[0-9]+(\/ws\/)/) ? '?runtime=deno' : '';
 
                     if (cid && did) {
                         const remoteDebuggerURL = localDevtoolsURL.replace(/wss?=(.*)/, `wss=${N2P_HOST}/ws/${cid}/${did}${params}`);

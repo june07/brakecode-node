@@ -1,7 +1,7 @@
 /**
  * MIT License
  *
- *    Copyright (c) 2020 June07
+ *    Copyright (c) 2020-2023 June07
  *
  *    Permission is hereby granted, free of charge, to any person obtaining a copy
  *    of this software and associated documentation files (the "Software"), to deal
@@ -21,7 +21,6 @@
  *    OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  *    SOFTWARE.
 */
-
 const debug = require('debug')('brakecode:ssh.js'),
     debugSSH = require('debug')('brakecode:ssh.js:ssh'),
     { exec } = require('child_process'),
@@ -67,31 +66,28 @@ class SSH {
                     else if (err) return reject(err);
                 });
             } else {
-                let timeoutId;
-                [new Promise(resolve => { timeoutId = setTimeout(resolve, self.NSSH_SERVER_TIMEOUT, new Error('timed out')); })];
-                let sshProcess = exec('ssh -v -4 -p ' + self.NSSH_SERVER_PORT + ' "' + self.Agent.config.apikeyHashedUUID.replaceAll('-', '_') + '"@' + self.NSSH_SERVER + ' -i ' + ID_RSA + ' -i ' + ID_RSA_CERT + ' ' + SSH_OPTIONS + ' ' + CMD, { maxBuffer: 1024 * 500 }, (err, stdout, stderr) => {
+                const sshProcess = exec('ssh -v -4 -p ' + self.NSSH_SERVER_PORT + ' "' + self.Agent.config.apikeyHashedUUID.replaceAll('-', '_') + '"@' + self.NSSH_SERVER + ' -i ' + ID_RSA + ' -i ' + ID_RSA_CERT + ' ' + SSH_OPTIONS + ' ' + CMD, { maxBuffer: 1024 * 500 }, (err, stdout, stderr) => {
                     if (err) return reject(stderr);
                 });
+                let sshOutput = '';
+
                 sshProcess.on('close', () => {
-                    if (self.tunnels[options.pid]) self.tunnels[options.pid].state = 'closed';
+                    if (self.tunnels[options.pid]) {
+                        self.tunnels[options.pid].state = 'closed';
+                        reject();
+                    }
                 });
-                sshProcess.stderr.on('data', data => {
-                    let nsshServerUUID = data.match(/nsshost\s([0-9A-F]{8}-[0-9A-F]{4}-4[0-9A-F]{3}-[89AB][0-9A-F]{3}-[0-9A-F]{12})/i);
-                    if (nsshServerUUID && nsshServerUUID.length > 0) nsshServerUUID = nsshServerUUID[1];
-                    if (nsshServerUUID) {
-                        clearTimeout(timeoutId);
-                        debug(nsshServerUUID);
-                        if (nsshServerUUID instanceof Error) {
-                            return reject(nsshServerUUID);
-                        }
-                        let nsshServer = self.Agent.nsshServerMap.find(server => server.uuid === nsshServerUUID);
-                        if (nsshServer === undefined) return reject(new Error(`Mapping missing for nssh server: ${nsshServerUUID}`));
+                sshProcess.stderr.on('data', (data) => {
+                    sshOutput += data;
+
+                    const nsshost = sshOutput.match(/nsshost\s([0-9A-F]{8}-[0-9A-F]{4}-4[0-9A-F]{3}-[89AB][0-9A-F]{3}-[0-9A-F]{12})/i)?.[1];
+                    if (nsshost) {
+                        const mapping = self.Agent.nsshServerMap.find((server) => server.uuid === nsshost);
                         self.tunnels[options.pid] = {
                             pid: options.pid,
                             ssh: sshProcess,
                             inspectSocket: options.inspectSocket,
-                            socket: nsshServer.fqdn + ":" + options.tunnelPort,
-                            //nsshServerAddress: nsshServer.address,
+                            socket: mapping.fqdn + ":" + options.tunnelPort,
                             state: 'connected'
                         };
                         resolve(self.tunnels[options.pid]);
